@@ -1,0 +1,6 @@
+{
+  "name": "জান্নাত কম্পিউটার্স - Jannat Computers",
+  "description": "বাংলাদেশে প্রিমিয়াম কম্পিউটার, ল্যাপটপ, এক্সেসরিজ ও পিসি বিল্ডার ই-কমার্স প্ল্যাটফর্ম (Inspired by Ryans Computers)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
