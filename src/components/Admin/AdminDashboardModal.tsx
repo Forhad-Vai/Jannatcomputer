@@ -49,7 +49,7 @@ import { useShop } from '../../context/ShopContext';
 import { Order, Coupon, FooterSettings } from '../../types';
 import { PaymentQRCode } from '../Common/PaymentQRCode';
 import { PolicyEditorTab } from './PolicyEditorTab';
-import { changePasswordOnServer } from '../../utils/authApi';
+import { changePasswordOnServer, getSupabaseCredentials, saveSupabaseCredentials } from '../../utils/authApi';
 
 export const AdminDashboardModal: React.FC = () => {
   const {
@@ -420,6 +420,19 @@ export const AdminDashboardModal: React.FC = () => {
   const [isChangingPass, setIsChangingPass] = useState(false);
   const [passChangeSuccess, setPassChangeSuccess] = useState('');
   const [passChangeError, setPassChangeError] = useState('');
+
+  // Supabase Database Connection State
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState(() => getSupabaseCredentials().url);
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState(() => getSupabaseCredentials().key);
+  const [supabaseSavedSuccess, setSupabaseSavedSuccess] = useState(false);
+
+  const handleSaveSupabaseConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveSupabaseCredentials(supabaseUrlInput, supabaseKeyInput);
+    setSupabaseSavedSuccess(true);
+    showToast(t('Supabase ডেটাবেজ সেটিংস সফলভাবে সেভ হয়েছে!', 'Supabase config saved successfully!'), 'success');
+    setTimeout(() => setSupabaseSavedSuccess(false), 4000);
+  };
 
   const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1797,13 +1810,91 @@ export const AdminDashboardModal: React.FC = () => {
                 </form>
               </div>
 
+              {/* Supabase Cloud Database Direct Connection */}
+              <div className="bg-slate-950/80 rounded-2xl border border-amber-500/40 p-6 space-y-4 shadow-xl">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                      <Globe className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-white">
+                        {t('Supabase লাইভ ক্লাউড ডেটাবেজ সংযোগ', 'Supabase Cloud Database Live Connection')}
+                      </h4>
+                      <p className="text-xs text-slate-400">
+                        {t('এখানে আপনার Supabase URL ও anon key সেভ করলে SQL এ পরিবর্তন করা পাসওয়ার্ড সাথে সাথে সিঙ্ক হবে।', 'Save your Supabase Project URL & Anon Key here to sync directly with Supabase SQL tables.')}
+                      </p>
+                    </div>
+                  </div>
+                  {getSupabaseCredentials().isConnected ? (
+                    <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {t('কানেক্টেড (LIVE)', 'CONNECTED (LIVE)')}
+                    </span>
+                  ) : (
+                    <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black px-2.5 py-1 rounded-full">
+                      {t('কনফিগার করুন', 'NOT CONFIGURED')}
+                    </span>
+                  )}
+                </div>
+
+                {supabaseSavedSuccess && (
+                  <div className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs p-3 rounded-xl flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>{t('Supabase ক্রেডেনশিয়ালস সফলভাবে কানেক্ট ও সেভ হয়েছে!', 'Supabase credentials connected and saved successfully!')}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleSaveSupabaseConfig} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        {t('Supabase Project URL', 'Supabase Project URL')}
+                      </label>
+                      <input
+                        type="url"
+                        value={supabaseUrlInput}
+                        onChange={(e) => setSupabaseUrlInput(e.target.value)}
+                        placeholder="https://xyzcompany.supabase.co"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-hidden focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                        {t('Supabase Anon Public API Key', 'Supabase Anon Public API Key')}
+                      </label>
+                      <input
+                        type="password"
+                        value={supabaseKeyInput}
+                        onChange={(e) => setSupabaseKeyInput(e.target.value)}
+                        placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6Ikp..."
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-hidden focus:border-amber-500 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <p className="text-[11px] text-slate-400">
+                      💡 {t('Supabase Dashboard -> Settings -> API থেকে URL ও anon key পাবেন।', 'Get URL and anon key from Supabase Dashboard -> Settings -> API.')}
+                    </p>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition cursor-pointer flex items-center gap-1.5 shadow-md"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{t('কানেকশন সেভ করুন', 'Save Connection')}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
               {/* Security Shield Highlights */}
               <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 text-xs text-slate-400 flex items-center gap-3">
                 <ShieldCheck className="w-5 h-5 text-emerald-400 shrink-0" />
                 <span>
                   {t(
-                    'সকল রোল ভেরিফিকেশন এবং পাসওয়ার্ড যাচাইকরণ সম্পূর্ণভাবে সার্ভারে সম্পাদিত হয়। সোর্স কোড বা ব্রাউজারের কোনো বান্ডেলে কোনো পাসওয়ার্ড নেই।',
-                    'All role verification and password comparisons are strictly executed on the server. Zero passwords or credentials exist in the client-side bundle.'
+                    'সকল রোল ভেরিফিকেশন এবং পাসওয়ার্ড যাচাইকরণ সম্পূর্ণভাবে ডেটাবেজ ও সার্ভারে সম্পাদিত হয়।',
+                    'All role verification and password comparisons are strictly executed via authenticated database/server verification.'
                   )}
                 </span>
               </div>

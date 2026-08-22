@@ -192,59 +192,42 @@ export async function loginRole(
       }
     }
   } catch {
-    // API not reachable, fallback to next steps
+    // API not reachable
   }
 
-  // 🔹 Step C: Guaranteed Fallback & Flexible Match (Admin: admin/admin123 | Market: market/market123 | Custom names)
-  const isTargetAdmin = requestedRole === 'admin' || !requestedRole;
-  const isTargetMarket = requestedRole === 'market' || !requestedRole;
-
-  // Admin credentials match (Standard + Common Admin inputs)
-  if (
-    isTargetAdmin &&
-    (
-      (lowerUser === 'admin' || lowerUser === 'fmvai' || lowerUser === 'jannat' || lowerUser === 'superadmin' || lowerUser === 'owner') &&
-      (cleanPass === 'admin123' || cleanPass === 'Admin@2026' || cleanPass === 'admin' || cleanPass === '123456' || cleanPass === 'admin@123' || cleanPass === 'jannat123' || cleanPass === 'Admin123')
-    )
-  ) {
-    const defaultAdmin = {
-      id: 'usr_admin_1',
-      name: cleanUser === 'fmvai' ? 'এফএম ভাই (অ্যাডমিন)' : 'প্রধান অ্যাডমিনিস্ট্রেটর',
-      role: 'admin' as const,
-      permissions: ['all'],
-      email: 'admin@jannatcomputers.com.bd',
-      phone: '01717220224',
-      loginAt: new Date().toISOString(),
-    };
-    const token = `jc_def_${safeBase64Encode(defaultAdmin)}`;
-    localStorage.setItem('jc_auth_token', token);
-    localStorage.setItem('jc_user', JSON.stringify(defaultAdmin));
-    return { success: true, token, user: defaultAdmin };
+  // 🔹 Step C: Check local custom credentials override (set by admin in dashboard)
+  try {
+    const customCredsStr = localStorage.getItem('jc_custom_auth_credentials');
+    if (customCredsStr) {
+      const customCreds = JSON.parse(customCredsStr);
+      if (Array.isArray(customCreds)) {
+        const matched = customCreds.find(
+          (c: any) =>
+            (c.username?.toLowerCase() === lowerUser || c.phone === cleanUser) &&
+            c.password_plain === cleanPass &&
+            (c.role === requestedRole || !requestedRole)
+        );
+        if (matched) {
+          const userPayload = {
+            id: matched.id || `usr_${matched.role}_1`,
+            name: matched.full_name || (matched.role === 'admin' ? 'প্রধান অ্যাডমিনিস্ট্রেটর' : 'মার্কেট ও ইনভেন্টরি ম্যানেজার'),
+            role: matched.role as 'admin' | 'market',
+            permissions: matched.permissions || ['all'],
+            phone: matched.phone || '',
+            loginAt: new Date().toISOString(),
+          };
+          const token = `jc_local_${safeBase64Encode(userPayload)}`;
+          localStorage.setItem('jc_auth_token', token);
+          localStorage.setItem('jc_user', JSON.stringify(userPayload));
+          return { success: true, token, user: userPayload };
+        }
+      }
+    }
+  } catch {
+    // continue
   }
 
-  // Market credentials match (Standard + Common Market inputs)
-  if (
-    isTargetMarket &&
-    (
-      (lowerUser === 'market' || lowerUser === 'market_user' || lowerUser === 'inventory' || lowerUser === 'staff' || lowerUser === 'jannat_market') &&
-      (cleanPass === 'market123' || cleanPass === 'Market@2026' || cleanPass === 'market' || cleanPass === '123456' || cleanPass === 'market@123' || cleanPass === 'Market123')
-    )
-  ) {
-    const defaultMarket = {
-      id: 'usr_market_1',
-      name: 'মার্কেট ও ইনভেন্টরি ম্যানেজার',
-      role: 'market' as const,
-      permissions: ['inventory', 'pricing', 'deals'],
-      email: 'market@jannatcomputers.com.bd',
-      phone: '01912345678',
-      loginAt: new Date().toISOString(),
-    };
-    const token = `jc_def_${safeBase64Encode(defaultMarket)}`;
-    localStorage.setItem('jc_auth_token', token);
-    localStorage.setItem('jc_user', JSON.stringify(defaultMarket));
-    return { success: true, token, user: defaultMarket };
-  }
-
+  // Default fallback ONLY if neither Supabase nor custom credentials matched
   return {
     success: false,
     message: 'ভুল ইউজারনেম অথবা পাসওয়ার্ড! অনুগ্রহ করে সঠিক তথ্য দিয়ে পুনরায় চেষ্টা করুন।',
