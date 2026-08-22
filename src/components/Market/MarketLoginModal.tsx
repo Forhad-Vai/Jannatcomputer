@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Lock, User, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Lock, User, ArrowRight, Eye, EyeOff, AlertCircle, Loader2, Database, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
-import { loginRole } from '../../utils/authApi';
+import { loginRole, getSupabaseCredentials, saveSupabaseCredentials } from '../../utils/authApi';
 
 export const MarketLoginModal: React.FC = () => {
   const { language, t, closeModal, showToast, login, openModal, footerSettings } = useShop();
@@ -10,6 +10,21 @@ export const MarketLoginModal: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Supabase quick connect state
+  const isConnected = getSupabaseCredentials().isConnected;
+  const [showDbConfig, setShowDbConfig] = useState(!isConnected);
+  const [supabaseUrl, setSupabaseUrl] = useState(() => getSupabaseCredentials().url);
+  const [supabaseKey, setSupabaseKey] = useState(() => getSupabaseCredentials().key);
+  const [savedDbNotice, setSavedDbNotice] = useState(false);
+
+  const handleSaveDb = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveSupabaseCredentials(supabaseUrl, supabaseKey);
+    setSavedDbNotice(true);
+    showToast(t('Supabase ডেটাবেজ সেটিংস সেভ হয়েছে!', 'Supabase config saved!'), 'success');
+    setTimeout(() => setSavedDbNotice(false), 3000);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +41,7 @@ export const MarketLoginModal: React.FC = () => {
           role: result.user.role,
           email: 'market@jannatcomputers.com.bd',
         });
+        showToast(t('মার্কেট প্যানেলে স্বাগতম!', 'Welcome to Market Panel!'), 'success');
         closeModal();
         openModal('market');
       } else {
@@ -154,7 +170,75 @@ export const MarketLoginModal: React.FC = () => {
             </div>
           </form>
 
-          <div className="text-center pt-2 border-t border-slate-100">
+          {/* Supabase Connection Setup Toggle */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() => setShowDbConfig(!showDbConfig)}
+              className="w-full px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 flex items-center justify-between font-semibold text-slate-700 transition cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Database className="w-3.5 h-3.5 text-rose-600" />
+                <span>{t('Supabase ডেটাবেজ সংযোগ সেটিংস', 'Supabase Database Connection')}</span>
+                {isConnected ? (
+                  <span className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0.5 rounded font-bold">
+                    {t('কানেক্টেড (SQL লাইভ)', 'Connected (Live SQL)')}
+                  </span>
+                ) : (
+                  <span className="bg-amber-100 text-amber-700 text-[10px] px-1.5 py-0.5 rounded font-bold">
+                    {t('সংযোগ প্রয়োজন', 'Setup URL & Key')}
+                  </span>
+                )}
+              </div>
+              {showDbConfig ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+            </button>
+
+            {showDbConfig && (
+              <form onSubmit={handleSaveDb} className="p-3.5 bg-white border-t border-slate-200 space-y-2.5">
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  {t('আপনার Supabase Dashboard -> Settings -> API থেকে URL ও anon key দিয়ে সেভ করলে ওয়েবসাইট সরাসরি আপনার ডেটাবেজে রান করা পাসওয়ার্ড দিয়ে লগইন ভেরিফাই করবে।', 'Save your Supabase URL & Anon Key so logins are verified strictly against your live SQL table.')}
+                </p>
+                {savedDbNotice && (
+                  <div className="bg-emerald-50 text-emerald-700 p-2 rounded-lg text-[11px] flex items-center gap-1.5 font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>{t('Supabase ডেটাবেজ সফলভাবে সংযুক্ত হয়েছে!', 'Supabase connected successfully!')}</span>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Supabase Project URL
+                  </label>
+                  <input
+                    type="url"
+                    value={supabaseUrl}
+                    onChange={(e) => setSupabaseUrl(e.target.value)}
+                    placeholder="https://xyzcompany.supabase.co"
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono focus:bg-white focus:outline-hidden focus:border-rose-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Supabase Anon Key
+                  </label>
+                  <input
+                    type="text"
+                    value={supabaseKey}
+                    onChange={(e) => setSupabaseKey(e.target.value)}
+                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+                    className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono focus:bg-white focus:outline-hidden focus:border-rose-500"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2 rounded-lg transition cursor-pointer shadow-sm"
+                >
+                  {t('ডেটাবেজ কানেকশন সেভ করুন', 'Save Supabase Connection')}
+                </button>
+              </form>
+            )}
+          </div>
+
+          <div className="text-center pt-1 border-t border-slate-100">
             <p className="text-[11px] text-slate-400">
               {t('সুরক্ষিত সার্ভার ভিত্তিক রোল ভেরিফিকেশন দ্বারা সুরক্ষিত।', 'Protected by secure server-side Role-Based Access Control (RBAC).')}
             </p>

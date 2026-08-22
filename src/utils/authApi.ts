@@ -54,10 +54,10 @@ export function saveSupabaseCredentials(url: string, key: string) {
   }
 }
 
-// Helper to make authenticated Supabase REST calls
+// Helper to make authenticated Supabase REST calls with detailed error capture
 async function fetchSupabase(path: string, options: RequestInit = {}) {
   const { url: baseUrl, key: anonKey } = getSupabaseCredentials();
-  if (!baseUrl || !anonKey) return null;
+  if (!baseUrl || !anonKey) return { ok: false, data: null, error: 'No credentials' };
 
   const url = `${baseUrl}/rest/v1/${path}`;
   const headers = {
@@ -70,13 +70,18 @@ async function fetchSupabase(path: string, options: RequestInit = {}) {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
     const response = await fetch(url, { ...options, headers, signal: controller.signal });
     clearTimeout(timeoutId);
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
-    return null;
+    
+    if (!response.ok) {
+      const errText = await response.text();
+      return { ok: false, status: response.status, error: errText, data: null };
+    }
+    const data = await response.json();
+    return { ok: true, data, error: null };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Network error', data: null };
   }
 }
 
@@ -98,58 +103,71 @@ export async function loginRole(
 
   const lowerUser = cleanUser.toLowerCase();
 
-  // 🔹 Step A: Check Supabase `admin_users` table with flexible queries
+  // 🔹 Step A: Check Supabase `admin_users` table with direct live queries
   const { isConnected } = getSupabaseCredentials();
   if (isConnected) {
     try {
-      // 1. Search in admin_users by username (case-insensitive) or phone
-      let data = await fetchSupabase(
-        `admin_users?or=(username.ilike.${encodeURIComponent(cleanUser)},phone.eq.${encodeURIComponent(cleanUser)})&select=*`
-      );
+      // Direct fetch of admin_users to prevent any URL-encoding or wildcard issues with underscores
+      let res = await fetchSupabase('admin_users?select=*');
 
-      // If not found, try simple username query
-      if (!Array.isArray(data) || data.length === 0) {
-        data = await fetchSupabase(
-          `admin_users?username=eq.${encodeURIComponent(cleanUser)}&select=*`
-        );
-      }
+      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+        const allAccounts = res.data;
 
-      // If still not found, fetch all records and filter in JS
-      if (!Array.isArray(data) || data.length === 0) {
-        data = await fetchSupabase('admin_users?select=*');
-        if (Array.isArray(data) && data.length > 0) {
-          data = data.filter(
-            (u: any) =>
-              String(u.username || '').toLowerCase() === lowerUser ||
-              String(u.phone || '') === cleanUser
-          );
-        }
-      }
+        // Exact match by username (case-insensitive) or phone
+        const matchedUsers = allAccounts.filter((u: any) => {
+          const dbUsername = String(u.username || '').trim().toLowerCase();
+          const dbPhone = String(u.phone || '').trim();
+          return dbUsername === lowerUser || dbPhone === cleanUser;
+        });
 
-      if (Array.isArray(data) && data.length > 0) {
-        const adminAccount = data[0];
-
-        // Check if account is active
-        if (adminAccount.is_active === false) {
+        if (matchedUsers.length === 0) {
           return {
             success: false,
-            message: 'এই অ্যাকাউন্টটি বর্তমানে নিষ্ক্রিয় রয়েছে। অ্যাডমিন সহায়তায় যোগাযোগ করুন।',
+            message: `Supabase ডেটাবেজে '${cleanUser}' নামের কোনো ইউজার পাওয়া যায়নি। অনুগ্রহ করে আপনার SQL-এ তৈরি করা সঠিক ইউজারনেম দিন।`,
           };
         }
 
-        // Compare password safely
-        const savedPass = String(adminAccount.password_plain || adminAccount.password_hash || adminAccount.password || '').trim();
+        const userAccount = matchedUsers[0];
+        const dbRole = String(userAccount.role || 'admin').trim().toLowerCase();
+
+        // 🔒 STRICT ROLE SEPARATION: Admin and Market cannot cross-login
+        const isDbMarket = dbRole === 'market' || dbRole.includes('market') || dbRole.includes('inventory');
+        const isDbAdmin = !isDbMarket; // Any non-market role is considered admin
+
+        if (requestedRole === 'admin' && isDbMarket) {
+          return {
+            success: false,
+            message: `এই অ্যাকাউন্টটি '${cleanUser}' মার্কেট প্যানেলের জন্য তৈরি করা হয়েছে। এটি দিয়ে এডমিন পোর্টালে লগইন করা যাবে না। মার্কেট লগইন প্যানেল ব্যবহার করুন।`,
+          };
+        }
+
+        if (requestedRole === 'market' && isDbAdmin) {
+          return {
+            success: false,
+            message: `এই অ্যাকাউন্টটি '${cleanUser}' এডমিন পোর্টালের জন্য তৈরি করা হয়েছে। এটি দিয়ে মার্কেট প্যানেলে লগইন করা যাবে না। এডমিন লগইন প্যানেল ব্যবহার করুন।`,
+          };
+        }
+
+        // Check if account is active
+        if (userAccount.is_active === false) {
+          return {
+            success: false,
+            message: 'এই অ্যাকাউন্টটি বর্তমানে নিষ্ক্রিয় অবস্থায় রয়েছে।',
+          };
+        }
+
+        // Strictly verify plain or hashed password
+        const savedPass = String(userAccount.password_plain || userAccount.password_hash || userAccount.password || '').trim();
         const passwordMatches = savedPass === cleanPass;
 
         if (passwordMatches) {
-          const userRole = String(adminAccount.role || 'admin').toLowerCase();
-          const resolvedRole = (userRole === 'market' ? 'market' : 'admin') as 'admin' | 'market';
+          const resolvedRole = (isDbMarket ? 'market' : 'admin') as 'admin' | 'market';
           const tokenPayload = {
-            id: adminAccount.id || `usr_${Date.now()}`,
-            name: adminAccount.full_name || adminAccount.username || cleanUser,
+            id: userAccount.id || `usr_${Date.now()}`,
+            name: userAccount.full_name || userAccount.username || cleanUser,
             role: resolvedRole,
-            permissions: adminAccount.permissions || ['all'],
-            phone: adminAccount.phone || '',
+            permissions: userAccount.permissions || (resolvedRole === 'admin' ? ['all'] : ['products', 'stock', 'categories', 'discounts']),
+            phone: userAccount.phone || '',
             loginAt: new Date().toISOString(),
           };
 
@@ -161,76 +179,37 @@ export async function loginRole(
             success: true,
             token,
             user: tokenPayload,
+            message: `${resolvedRole === 'admin' ? 'এডমিন পোর্টালে' : 'মার্কেট প্যানেলে'} সফলভাবে লগইন হয়েছে!`,
+          };
+        } else {
+          return {
+            success: false,
+            message: `ভুল পাসওয়ার্ড! Supabase ডেটাবেজে '${cleanUser}' এর জন্য দেওয়া সঠিক পাসওয়ার্ডটি লিখুন।`,
           };
         }
+      } else if (!res.ok) {
+        return {
+          success: false,
+          message: `Supabase ডেটাবেজ রেসপন্স করেনি (${res.error || 'Connection Failed'})। অনুগ্রহ করে Supabase Project URL ও Anon Key সঠিক কিনা চেক করুন।`,
+        };
+      } else {
+        return {
+          success: false,
+          message: `Supabase 'admin_users' টেবিলে কোনো অ্যাকাউন্ট পাওয়া যায়নি। অনুগ্রহ করে SQL স্ক্রিপ্ট রান করুন।`,
+        };
       }
-    } catch {
-      // Continue to next checks if Supabase query fails
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Supabase সংযোগে ত্রুটি: ${err?.message || 'Network error'}`,
+      };
     }
   }
 
-  // 🔹 Step B: Try backend server API route if available
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: cleanUser,
-        password: cleanPass,
-        requestedRole,
-      }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.token) {
-        localStorage.setItem('jc_auth_token', data.token);
-        if (data.user) {
-          localStorage.setItem('jc_user', JSON.stringify(data.user));
-        }
-        return data;
-      }
-    }
-  } catch {
-    // API not reachable
-  }
-
-  // 🔹 Step C: Check local custom credentials override (set by admin in dashboard)
-  try {
-    const customCredsStr = localStorage.getItem('jc_custom_auth_credentials');
-    if (customCredsStr) {
-      const customCreds = JSON.parse(customCredsStr);
-      if (Array.isArray(customCreds)) {
-        const matched = customCreds.find(
-          (c: any) =>
-            (c.username?.toLowerCase() === lowerUser || c.phone === cleanUser) &&
-            c.password_plain === cleanPass &&
-            (c.role === requestedRole || !requestedRole)
-        );
-        if (matched) {
-          const userPayload = {
-            id: matched.id || `usr_${matched.role}_1`,
-            name: matched.full_name || (matched.role === 'admin' ? 'প্রধান অ্যাডমিনিস্ট্রেটর' : 'মার্কেট ও ইনভেন্টরি ম্যানেজার'),
-            role: matched.role as 'admin' | 'market',
-            permissions: matched.permissions || ['all'],
-            phone: matched.phone || '',
-            loginAt: new Date().toISOString(),
-          };
-          const token = `jc_local_${safeBase64Encode(userPayload)}`;
-          localStorage.setItem('jc_auth_token', token);
-          localStorage.setItem('jc_user', JSON.stringify(userPayload));
-          return { success: true, token, user: userPayload };
-        }
-      }
-    }
-  } catch {
-    // continue
-  }
-
-  // Default fallback ONLY if neither Supabase nor custom credentials matched
+  // If Supabase is not connected
   return {
     success: false,
-    message: 'ভুল ইউজারনেম অথবা পাসওয়ার্ড! অনুগ্রহ করে সঠিক তথ্য দিয়ে পুনরায় চেষ্টা করুন।',
+    message: 'Supabase ডেটাবেজ এখনো সংযুক্ত হয়নি! অনুগ্রহ করে লগইন ফর্মের নিচে "Supabase ডেটাবেজ সংযোগ সেটিংস"-এ আপনার Supabase Project URL ও Anon Key দিন।',
   };
 }
 

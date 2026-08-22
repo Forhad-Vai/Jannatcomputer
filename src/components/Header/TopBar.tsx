@@ -3,7 +3,7 @@ import { Phone, Truck, Layers, Globe } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 
 export const TopBar: React.FC = () => {
-  const { language, toggleLanguage, t, openModal, compareList } = useShop();
+  const { language, toggleLanguage, t, openModal, compareList, isAdmin, isMarketAdmin } = useShop();
 
   return (
     <div id="top-bar" className="bg-slate-900 text-slate-200 text-xs border-b border-slate-800 transition-colors">
@@ -74,7 +74,7 @@ export const TopBar: React.FC = () => {
 
           {/* Quick Admin / Market Portal Links */}
           <button
-            onClick={() => openModal('adminLogin')}
+            onClick={() => openModal(isAdmin ? 'admin' : 'adminLogin')}
             className="flex items-center gap-1 text-amber-400 hover:text-amber-300 transition cursor-pointer font-bold bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded"
             title="Admin Dashboard"
           >
@@ -82,7 +82,7 @@ export const TopBar: React.FC = () => {
           </button>
 
           <button
-            onClick={() => openModal('marketLogin')}
+            onClick={() => openModal(isMarketAdmin ? 'market' : 'marketLogin')}
             className="flex items-center gap-1 text-rose-400 hover:text-rose-300 transition cursor-pointer font-bold bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded"
             title="Market Inventory Panel"
           >

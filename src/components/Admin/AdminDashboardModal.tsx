@@ -48,6 +48,7 @@ import {
   HardDrive,
   Download,
   RefreshCw,
+  Code,
 } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { Order, Coupon, FooterSettings } from '../../types';
@@ -183,6 +184,7 @@ export const AdminDashboardModal: React.FC = () => {
     syncAllToServer,
     downloadBackup,
     restoreFromBackup,
+    isAdmin,
   } = useShop();
 
   const [isManualSyncing, setIsManualSyncing] = useState(false);
@@ -583,6 +585,214 @@ export const AdminDashboardModal: React.FC = () => {
   const [supabaseUrlInput, setSupabaseUrlInput] = useState(() => getSupabaseCredentials().url);
   const [supabaseKeyInput, setSupabaseKeyInput] = useState(() => getSupabaseCredentials().key);
   const [supabaseSavedSuccess, setSupabaseSavedSuccess] = useState(false);
+  const [sqlCopied, setSqlCopied] = useState(false);
+
+  const supabaseSqlScript = `-- =========================================================================
+-- JANNAT COMPUTERS: COMPLETE SUPABASE DATABASE & AUTHENTICATION SCHEMA
+-- Run this in Supabase -> SQL Editor -> New Query -> Run
+-- =========================================================================
+
+-- ১. প্রয়োজনীয় এক্সটেনশন সক্রিয় করা
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- ২. পুরোনো টেবিল ক্লিন করা (Clean reset)
+DROP TABLE IF EXISTS public.activity_logs CASCADE;
+DROP TABLE IF EXISTS public.site_settings CASCADE;
+DROP TABLE IF EXISTS public.coupons CASCADE;
+DROP TABLE IF EXISTS public.orders CASCADE;
+DROP TABLE IF EXISTS public.products CASCADE;
+DROP TABLE IF EXISTS public.users CASCADE;
+DROP TABLE IF EXISTS public.admin_users CASCADE;
+
+-- ৩. [এডমিন ও মার্কেট লগইন টেবিল]
+CREATE TABLE public.admin_users (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  full_name TEXT DEFAULT '',
+  phone TEXT DEFAULT '',
+  role TEXT NOT NULL DEFAULT 'admin',
+  password_plain TEXT NOT NULL,
+  permissions TEXT[] DEFAULT ARRAY['all'],
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- এডমিন ও মার্কেট ডিফল্ট ইউজার ইনসার্ট
+INSERT INTO public.admin_users (username, full_name, phone, role, password_plain, permissions)
+VALUES 
+  (
+    'admin', 
+    'জান্নাত সুপার এডমিন', 
+    '01717220224', 
+    'admin', 
+    'admin123', 
+    ARRAY['all', 'orders', 'coupons', 'footer', 'reports', 'settings', 'market']
+  ),
+  (
+    'market', 
+    'জান্নাত ইনভেন্টরি ও মার্কেট এডমিন', 
+    '01700000000', 
+    'market', 
+    'market123', 
+    ARRAY['products', 'stock', 'categories', 'discounts']
+  );
+
+-- ৪. [কাস্টমার ইউজার অ্যাকাউন্ট ও লগইন টেবিল]
+CREATE TABLE public.users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  password_hash TEXT NOT NULL,
+  password_plain TEXT,
+  role TEXT DEFAULT 'customer',
+  address TEXT DEFAULT '',
+  district TEXT DEFAULT '',
+  thana TEXT DEFAULT '',
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ৫. [প্রোডাক্টস ও ইনভেন্টরি টেবিল]
+CREATE TABLE public.products (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  name_bn TEXT NOT NULL,
+  category TEXT NOT NULL,
+  subcategory TEXT DEFAULT '',
+  brand TEXT DEFAULT '',
+  model TEXT DEFAULT '',
+  price NUMERIC NOT NULL,
+  regular_price NUMERIC NOT NULL,
+  discount_percentage NUMERIC DEFAULT 0,
+  in_stock BOOLEAN DEFAULT TRUE,
+  stock_count INTEGER DEFAULT 10,
+  image TEXT NOT NULL,
+  gallery TEXT[] DEFAULT ARRAY[]::TEXT[],
+  rating NUMERIC DEFAULT 5.0,
+  reviews_count INTEGER DEFAULT 0,
+  is_hot BOOLEAN DEFAULT FALSE,
+  is_featured BOOLEAN DEFAULT FALSE,
+  is_deal BOOLEAN DEFAULT FALSE,
+  deal_ends_at TIMESTAMPTZ,
+  badge TEXT DEFAULT '',
+  badge_bn TEXT DEFAULT '',
+  key_specs TEXT[] DEFAULT ARRAY[]::TEXT[],
+  key_specs_bn TEXT[] DEFAULT ARRAY[]::TEXT[],
+  specs_table JSONB DEFAULT '[]'::JSONB,
+  warranty TEXT DEFAULT '',
+  warranty_bn TEXT DEFAULT '',
+  pc_category TEXT DEFAULT '',
+  wattage INTEGER DEFAULT 0,
+  socket TEXT DEFAULT '',
+  memory_type TEXT DEFAULT '',
+  form_factor TEXT DEFAULT '',
+  description TEXT DEFAULT '',
+  description_bn TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ৬. [কাস্টমার অর্ডার ও ট্র্যাকিং টেবিল]
+CREATE TABLE public.orders (
+  id TEXT PRIMARY KEY,
+  order_number TEXT UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  customer_name TEXT NOT NULL,
+  customer_phone TEXT NOT NULL,
+  customer_email TEXT DEFAULT '',
+  address TEXT NOT NULL,
+  district TEXT DEFAULT '',
+  thana TEXT DEFAULT '',
+  delivery_type TEXT DEFAULT 'home',
+  pickup_branch_id TEXT DEFAULT '',
+  payment_method TEXT NOT NULL,
+  transaction_id TEXT DEFAULT '',
+  items JSONB NOT NULL DEFAULT '[]'::JSONB,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  shipping_fee NUMERIC NOT NULL DEFAULT 0,
+  discount NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  notes TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',
+  timeline JSONB NOT NULL DEFAULT '[]'::JSONB,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ৭. [কুপন ও ডিসকাউন্ট ভাউচার টেবিল]
+CREATE TABLE public.coupons (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL,
+  discount_type TEXT NOT NULL CHECK (discount_type IN ('fixed', 'percentage')),
+  discount_amount NUMERIC NOT NULL,
+  min_spend NUMERIC NOT NULL DEFAULT 0,
+  is_active BOOLEAN DEFAULT TRUE,
+  description TEXT DEFAULT '',
+  expiry_date TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ডিফল্ট ডিসকাউন্ট কুপন ইনসার্ট
+INSERT INTO public.coupons (code, discount_type, discount_amount, min_spend, is_active, description)
+VALUES 
+  ('JANNAT100', 'fixed', 100, 1000, true, '১০০০ টাকার অর্ডারে ১০০ টাকা ছাড়'),
+  ('SUPER5', 'percentage', 5, 5000, true, '৫০০০ টাকার কেনাকাটায় ৫% বিশেষ ছাড়')
+ON CONFLICT (code) DO NOTHING;
+
+-- ৮. [সাইট ও ফুটার সেটিংস টেবিল]
+CREATE TABLE public.site_settings (
+  id TEXT PRIMARY KEY DEFAULT 'global_config',
+  store_name TEXT DEFAULT 'জান্নাত কম্পিউটার্স',
+  tagline_bn TEXT DEFAULT 'আপনার বিশ্বস্ত আইটি ও কম্পিউটার সল্যুশন পার্টনার',
+  phone1 TEXT DEFAULT '01717220224',
+  phone2 TEXT DEFAULT '01700000000',
+  payment_phone TEXT DEFAULT '01717220224',
+  email TEXT DEFAULT 'info@jannatcomputers.com',
+  address_bn TEXT DEFAULT 'গাইবান্ধা সদর, রংপুর বিভাগ, বাংলাদেশ',
+  settings_json JSONB DEFAULT '{}'::JSONB,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ৯. [অ্যাক্টিভিটি লগ টেবিল]
+CREATE TABLE public.activity_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  actor_name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  action TEXT NOT NULL,
+  details TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ১০. [নিরাপত্তা ও অ্যাক্সেস পলিসি এনাবল (Row Level Security)]
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow All for admin_users" ON public.admin_users FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow All for users" ON public.users FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow All for products" ON public.products FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow All for orders" ON public.orders FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow All for coupons" ON public.coupons FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow All for site_settings" ON public.site_settings FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow All for activity_logs" ON public.activity_logs FOR ALL USING (true) WITH CHECK (true);`;
+
+  const handleCopySqlScript = () => {
+    navigator.clipboard.writeText(supabaseSqlScript);
+    setSqlCopied(true);
+    showToast(t('SQL কোড কপি করা হয়েছে! Supabase SQL Editor এ পেস্ট করুন।', 'SQL script copied to clipboard!'), 'success');
+    setTimeout(() => setSqlCopied(false), 3000);
+  };
 
   const handleSaveSupabaseConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -703,6 +913,44 @@ export const AdminDashboardModal: React.FC = () => {
     });
     showToast(t('নতুন কুপন সফলভাবে সক্রিয় করা হয়েছে', 'New coupon code created successfully'));
   };
+
+  if (!isAdmin) {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
+        <div className="bg-slate-900 text-white w-full max-w-md rounded-2xl shadow-2xl border border-amber-500/40 overflow-hidden my-auto p-6 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/40">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h3 className="text-lg font-black text-amber-300">
+            {t('এডমিন পারমিশন প্রয়োজন', 'Admin Access Required')}
+          </h3>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            {t(
+              'এই ড্যাশবোর্ডটি শুধুমাত্র অনুমোদিত সুপার এডমিনদের জন্য সংরক্ষিত। এডমিন পাসওয়ার্ড দিয়ে লগইন করে প্রবেশ করুন।',
+              'This dashboard is strictly restricted to Super Administrators. Please log in with your Admin credentials to gain access.'
+            )}
+          </p>
+          <div className="pt-2 flex gap-3">
+            <button
+              onClick={closeModal}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+            >
+              {t('বন্ধ করুন', 'Close')}
+            </button>
+            <button
+              onClick={() => {
+                closeModal();
+                openModal('adminLogin');
+              }}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black transition cursor-pointer shadow-lg shadow-amber-500/20"
+            >
+              {t('এডমিন লগইন', 'Admin Login')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto animate-in fade-in">
@@ -2493,6 +2741,36 @@ export const AdminDashboardModal: React.FC = () => {
                     </button>
                   </div>
                 </form>
+
+                {/* Ready-to-run Separate Roles SQL Code Snippet */}
+                <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Code className="w-4 h-4 text-amber-400 shrink-0" />
+                      <div>
+                        <h5 className="font-bold text-xs text-white">
+                          {t('আলাদা এডমিন ও মার্কেট ইউজার তৈরীর জন্য Supabase SQL কোড', 'SQL Script for Distinct Admin & Market Roles')}
+                        </h5>
+                        <p className="text-[10px] text-slate-400">
+                          {t('এই কোডটি Supabase SQL Editor এ পেস্ট করে Run করুন। এতে এডমিন ও মার্কেট পাসওয়ার্ড কখনোই একটি আরেকটিতে কাজ করবে না।', 'Run this in Supabase SQL Editor. Ensures Admin & Market passwords never overlap or conflict.')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleCopySqlScript}
+                      className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-400 hover:text-amber-300 font-bold text-xs transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                    >
+                      {sqlCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{sqlCopied ? t('কপি হয়েছে!', 'Copied!') : t('SQL কোড কপি করুন', 'Copy SQL Script')}</span>
+                    </button>
+                  </div>
+
+                  <div className="bg-slate-900 rounded-xl p-3 border border-slate-800 font-mono text-[11px] text-slate-300 max-h-48 overflow-y-auto whitespace-pre leading-relaxed select-all">
+                    {supabaseSqlScript}
+                  </div>
+                </div>
               </div>
 
               {/* Security Shield Highlights */}

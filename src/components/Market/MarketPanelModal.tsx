@@ -22,6 +22,7 @@ import {
   ExternalLink,
   ShieldCheck,
   Tag,
+  Lock,
 } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { Product, PCComponentCategory } from '../../types';
@@ -54,6 +55,7 @@ export const MarketPanelModal: React.FC = () => {
     showToast,
     openModal,
     logout,
+    isMarketAdmin,
   } = useShop();
 
   // Product to delete state for modal confirmation
@@ -305,6 +307,44 @@ export const MarketPanelModal: React.FC = () => {
         : `Cloned "${p.name}" successfully`
     );
   };
+
+  if (!isMarketAdmin) {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
+        <div className="bg-slate-900 text-white w-full max-w-md rounded-2xl shadow-2xl border border-rose-600/40 overflow-hidden my-auto p-6 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto border border-rose-500/40">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h3 className="text-lg font-black text-rose-400">
+            {t('মার্কেট প্যানেল পারমিশন প্রয়োজন', 'Market Access Required')}
+          </h3>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            {t(
+              'এই প্যানেলটি শুধুমাত্র অনুমোদিত মার্কেট ও ইনভেন্টরি অ্যাকাউন্টদের জন্য সংরক্ষিত। মার্কেট পাসওয়ার্ড দিয়ে লগইন করে প্রবেশ করুন।',
+              'This panel is restricted to Market & Inventory Managers. Please log in with your Market account credentials to continue.'
+            )}
+          </p>
+          <div className="pt-2 flex gap-3">
+            <button
+              onClick={closeModal}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+            >
+              {t('বন্ধ করুন', 'Close')}
+            </button>
+            <button
+              onClick={() => {
+                closeModal();
+                openModal('marketLogin');
+              }}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 text-white text-xs font-black transition cursor-pointer shadow-lg shadow-rose-600/20"
+            >
+              {t('মার্কেট লগইন', 'Market Login')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto animate-in fade-in">

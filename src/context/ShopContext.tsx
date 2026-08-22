@@ -806,7 +806,7 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const isAdmin = currentUser?.role === 'admin';
-  const isMarketAdmin = currentUser?.role === 'market' || currentUser?.role === 'admin';
+  const isMarketAdmin = currentUser?.role === 'market';
 
   const login = (user: UserProfile) => {
     setCurrentUser(user);

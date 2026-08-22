@@ -46,12 +46,13 @@ function verifyPassword(password: string, salt: string, expectedHash: string): b
 // Server-Side Role-Based Credential Store (InMemory + Env)
 // Passwords are stored ONLY as salted cryptographic hashes
 // -------------------------------------------------------------
-const initialAdminPass = process.env.ADMIN_PASSWORD || 'admin123';
+const initialAdminPass = process.env.ADMIN_PASSWORD || 'jannat@8032451';
 const initialMarketPass = process.env.MARKET_PASSWORD || 'market123';
 
 const SERVER_ROLES_STORE = {
   admin: {
     username: process.env.ADMIN_USERNAME || 'admin',
+    phone: '01717220224',
     ...hashPassword(initialAdminPass),
     name: 'Jannat Super Admin',
     role: 'admin' as const,
@@ -59,6 +60,7 @@ const SERVER_ROLES_STORE = {
   },
   market: {
     username: process.env.MARKET_USERNAME || 'market',
+    phone: '01700000000',
     ...hashPassword(initialMarketPass),
     name: 'Jannat Inventory & Market Admin',
     role: 'market' as const,
@@ -232,21 +234,30 @@ app.post('/api/auth/login', (req: Request, res: Response): void => {
   const cleanUser = String(username).trim();
   let matchedUser: (typeof SERVER_ROLES_STORE)[keyof typeof SERVER_ROLES_STORE] | null = null;
 
+  const isAdminUser = cleanUser === SERVER_ROLES_STORE.admin.username || cleanUser === SERVER_ROLES_STORE.admin.phone;
+  const isMarketUser = cleanUser === SERVER_ROLES_STORE.market.username || cleanUser === SERVER_ROLES_STORE.market.phone;
+
+  const isAdminPassValid =
+    verifyPassword(password, SERVER_ROLES_STORE.admin.salt, SERVER_ROLES_STORE.admin.hash) ||
+    password === initialAdminPass;
+
+  const isMarketPassValid =
+    verifyPassword(password, SERVER_ROLES_STORE.market.salt, SERVER_ROLES_STORE.market.hash) ||
+    password === initialMarketPass;
+
   if (requestedRole === 'admin') {
-    const admin = SERVER_ROLES_STORE.admin;
-    if (cleanUser === admin.username && verifyPassword(password, admin.salt, admin.hash)) {
-      matchedUser = admin;
+    if (isAdminUser && isAdminPassValid) {
+      matchedUser = SERVER_ROLES_STORE.admin;
     }
   } else if (requestedRole === 'market') {
-    const market = SERVER_ROLES_STORE.market;
-    if (cleanUser === market.username && verifyPassword(password, market.salt, market.hash)) {
-      matchedUser = market;
+    if (isMarketUser && isMarketPassValid) {
+      matchedUser = SERVER_ROLES_STORE.market;
     }
   } else {
     // Scan roles
-    if (cleanUser === SERVER_ROLES_STORE.admin.username && verifyPassword(password, SERVER_ROLES_STORE.admin.salt, SERVER_ROLES_STORE.admin.hash)) {
+    if (isAdminUser && isAdminPassValid) {
       matchedUser = SERVER_ROLES_STORE.admin;
-    } else if (cleanUser === SERVER_ROLES_STORE.market.username && verifyPassword(password, SERVER_ROLES_STORE.market.salt, SERVER_ROLES_STORE.market.hash)) {
+    } else if (isMarketUser && isMarketPassValid) {
       matchedUser = SERVER_ROLES_STORE.market;
     }
   }
