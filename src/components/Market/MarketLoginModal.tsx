@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Package, Lock, User, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Lock, User, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { loginRole } from '../../utils/authApi';
 
@@ -50,15 +50,15 @@ export const MarketLoginModal: React.FC = () => {
     <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-300 overflow-hidden my-auto flex flex-col">
         {/* Header */}
-        <div className="bg-slate-900 text-white p-5 flex items-center justify-between border-b-2 border-rose-600">
+        <div className="bg-slate-900 text-white p-5 flex items-center justify-between border-b-2 border-rose-500">
           <div className="flex items-center gap-3">
             <div className="relative flex items-center justify-center shrink-0">
-              <div className="absolute inset-0 bg-rose-600/40 rounded-xl blur-md"></div>
+              <div className="absolute inset-0 bg-rose-500/30 rounded-xl blur-md"></div>
               <img
                 src={footerSettings?.logoUrl || 'https://cdn.phototourl.com/free/2026-08-18-98718101-691f-402b-af90-3cb095b635e0.png'}
                 alt="Logo"
                 referrerPolicy="no-referrer"
-                className="relative h-11 w-auto object-contain drop-shadow-[0_4px_12px_rgba(225,29,72,0.5)]"
+                className="relative h-11 w-auto object-contain drop-shadow-[0_4px_12px_rgba(244,63,94,0.5)]"
               />
             </div>
             <div>
@@ -66,7 +66,7 @@ export const MarketLoginModal: React.FC = () => {
                 {t('মার্কেট প্যানেল লগইন', 'Market Panel Login')}
               </h3>
               <p className="text-[11px] text-slate-400">
-                {t('পণ্য সংযোজন, মূল্য পরিবর্তন ও ইনভেন্টরি স্টক নিয়ন্ত্রণ', 'Product Catalog, Pricing & Stock Management')}
+                {t('পণ্য যুক্ত, ক্যাটাগরি, স্টক ও প্রাইজ ম্যানেজমেন্ট', 'Product Addition, Category, Stock & Price Management')}
               </p>
             </div>
           </div>
@@ -79,7 +79,7 @@ export const MarketLoginModal: React.FC = () => {
         </div>
 
         {/* Form Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-4">
           {errorMsg && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -87,7 +87,7 @@ export const MarketLoginModal: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 {t('মার্কেট ইউজারনেম', 'Market Username')}
@@ -102,7 +102,7 @@ export const MarketLoginModal: React.FC = () => {
                   required
                   disabled={isLoading}
                   autoComplete="username"
-                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:outline-hidden focus:border-rose-600 focus:ring-1 focus:ring-rose-600 transition disabled:opacity-50"
+                  className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:outline-hidden focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition disabled:opacity-50"
                 />
               </div>
             </div>
@@ -121,7 +121,7 @@ export const MarketLoginModal: React.FC = () => {
                   required
                   disabled={isLoading}
                   autoComplete="current-password"
-                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:outline-hidden focus:border-rose-600 focus:ring-1 focus:ring-rose-600 transition disabled:opacity-50"
+                  className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-medium focus:bg-white focus:outline-hidden focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition disabled:opacity-50"
                 />
                 <button
                   type="button"
@@ -133,11 +133,11 @@ export const MarketLoginModal: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 disabled:opacity-60 text-white font-extrabold text-sm py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-rose-600/30 transition cursor-pointer"
+                className="w-full bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 disabled:opacity-60 text-white font-black text-sm py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-rose-500/30 transition cursor-pointer"
               >
                 {isLoading ? (
                   <>

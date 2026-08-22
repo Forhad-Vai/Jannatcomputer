@@ -69,6 +69,25 @@ export const TopBar: React.FC = () => {
             <Globe className="w-3 h-3 text-rose-400" />
             <span>{language === 'bn' ? 'English' : 'বাংলা'}</span>
           </button>
+
+          <span className="text-slate-600">|</span>
+
+          {/* Quick Admin / Market Portal Links */}
+          <button
+            onClick={() => openModal('adminLogin')}
+            className="flex items-center gap-1 text-amber-400 hover:text-amber-300 transition cursor-pointer font-bold bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded"
+            title="Admin Dashboard"
+          >
+            <span>👑 {t('এডমিন', 'Admin')}</span>
+          </button>
+
+          <button
+            onClick={() => openModal('marketLogin')}
+            className="flex items-center gap-1 text-rose-400 hover:text-rose-300 transition cursor-pointer font-bold bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded"
+            title="Market Inventory Panel"
+          >
+            <span>📦 {t('মার্কেট', 'Market')}</span>
+          </button>
         </div>
       </div>
     </div>

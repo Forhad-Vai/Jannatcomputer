@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, Lock, User, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Lock, User, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { loginRole } from '../../utils/authApi';
 
@@ -79,7 +79,7 @@ export const AdminLoginModal: React.FC = () => {
         </div>
 
         {/* Form Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-4">
           {errorMsg && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-xl flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -87,7 +87,7 @@ export const AdminLoginModal: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 {t('এডমিন ইউজারনেম', 'Admin Username')}
@@ -133,7 +133,7 @@ export const AdminLoginModal: React.FC = () => {
               </div>
             </div>
 
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 type="submit"
                 disabled={isLoading}
