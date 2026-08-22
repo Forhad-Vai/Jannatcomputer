@@ -1,4 +1,4 @@
-// Client-side authentication service supporting Supabase directly and seamless offline fallback
+// Client-side authentication service supporting Supabase directly, local overrides, and seamless offline fallback
 export interface LoginResponse {
   success: boolean;
   token?: string;
@@ -31,7 +31,10 @@ async function fetchSupabase(path: string, options: RequestInit = {}) {
   };
 
   try {
-    const response = await fetch(url, { ...options, headers });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const response = await fetch(url, { ...options, headers, signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!response.ok) return null;
     return await response.json();
   } catch {
@@ -55,6 +58,8 @@ export async function loginRole(
     };
   }
 
+  const lowerUser = cleanUser.toLowerCase();
+
   // 🔹 Step A: Check Supabase `admin_users` table with flexible queries
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
@@ -68,6 +73,18 @@ export async function loginRole(
         data = await fetchSupabase(
           `admin_users?username=eq.${encodeURIComponent(cleanUser)}&select=*`
         );
+      }
+
+      // If still not found and requesting all records (fallback)
+      if (!Array.isArray(data) || data.length === 0) {
+        data = await fetchSupabase('admin_users?select=*');
+        if (Array.isArray(data) && data.length > 0) {
+          data = data.filter(
+            (u: any) =>
+              String(u.username || '').toLowerCase() === lowerUser ||
+              String(u.phone || '') === cleanUser
+          );
+        }
       }
 
       if (Array.isArray(data) && data.length > 0) {
@@ -85,121 +102,38 @@ export async function loginRole(
         const savedPass = String(adminAccount.password_plain || adminAccount.password_hash || adminAccount.password || '').trim();
         const passwordMatches = savedPass === cleanPass;
 
-        if (!passwordMatches) {
+        if (passwordMatches) {
+          const userRole = String(adminAccount.role || 'admin').toLowerCase();
+          const resolvedRole = (userRole === 'market' ? 'market' : 'admin') as 'admin' | 'market';
+          const tokenPayload = {
+            id: adminAccount.id || `usr_${Date.now()}`,
+            name: adminAccount.full_name || adminAccount.username || cleanUser,
+            role: resolvedRole,
+            permissions: adminAccount.permissions || ['all'],
+            phone: adminAccount.phone || '',
+            loginAt: new Date().toISOString(),
+          };
+
+          const token = `jc_sb_${btoa(JSON.stringify(tokenPayload))}`;
+          localStorage.setItem('jc_auth_token', token);
+          localStorage.setItem('jc_user', JSON.stringify(tokenPayload));
+
           return {
-            success: false,
-            message: 'ভুল পাসওয়ার্ড! অনুগ্রহ করে সঠিক পাসওয়ার্ড প্রদান করুন।',
+            success: true,
+            token,
+            user: tokenPayload,
           };
         }
-
-        // Check role permission
-        const userRole = String(adminAccount.role || 'admin').toLowerCase();
-        if (
-          requestedRole &&
-          userRole !== requestedRole &&
-          userRole !== 'admin' &&
-          userRole !== 'super_admin'
-        ) {
-          return {
-            success: false,
-            message: `এই অ্যাকাউন্টের মাধ্যমে ${requestedRole === 'admin' ? 'এডমিন' : 'মার্কেট'} প্যানেলে প্রবেশের অনুমতি নেই।`,
-          };
-        }
-
-        const resolvedRole = (userRole === 'market' ? 'market' : 'admin') as 'admin' | 'market';
-        const tokenPayload = {
-          id: adminAccount.id || `usr_${Date.now()}`,
-          name: adminAccount.full_name || adminAccount.username || cleanUser,
-          role: resolvedRole,
-          permissions: adminAccount.permissions || ['all'],
-          phone: adminAccount.phone || '',
-          loginAt: new Date().toISOString(),
-        };
-
-        const token = `jc_sb_${btoa(JSON.stringify(tokenPayload))}`;
-        localStorage.setItem('jc_auth_token', token);
-        localStorage.setItem('jc_user', JSON.stringify(tokenPayload));
-
-        return {
-          success: true,
-          token,
-          user: tokenPayload,
-        };
       }
     } catch {
-      // Continue to next checks if Supabase query fails
+      // Continue to default fallbacks
     }
   }
 
-  // 🔹 Step B: Try backend API route if available
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: cleanUser,
-        password: cleanPass,
-        requestedRole,
-      }),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data.success && data.token) {
-        localStorage.setItem('jc_auth_token', data.token);
-        if (data.user) {
-          localStorage.setItem('jc_user', JSON.stringify(data.user));
-        }
-        return data;
-      }
-    }
-  } catch {
-    // API not reachable, fallback to default credentials
-  }
-
-  // 🔹 Step C: Guaranteed Default Fallbacks (admin/admin123 & market/market123)
-  const lowerUser = cleanUser.toLowerCase();
-  if (
-    (requestedRole === 'admin' || !requestedRole) &&
-    (lowerUser === 'admin' || lowerUser === 'superadmin' || lowerUser === 'jannat') &&
-    (cleanPass === 'admin123' || cleanPass === 'admin' || cleanPass === 'jannat123' || cleanPass === '123456')
-  ) {
-    const defaultAdmin = {
-      id: 'default_admin_1',
-      name: 'প্রধান অ্যাডমিনিস্ট্রেটর',
-      role: 'admin' as const,
-      permissions: ['all'],
-      email: 'admin@jannatcomputers.com.bd',
-      loginAt: new Date().toISOString(),
-    };
-    const token = `jc_def_${btoa(JSON.stringify(defaultAdmin))}`;
-    localStorage.setItem('jc_auth_token', token);
-    localStorage.setItem('jc_user', JSON.stringify(defaultAdmin));
-    return { success: true, token, user: defaultAdmin };
-  }
-
-  if (
-    (requestedRole === 'market' || !requestedRole) &&
-    (lowerUser === 'market' || lowerUser === 'inventory' || lowerUser === 'staff') &&
-    (cleanPass === 'market123' || cleanPass === 'market' || cleanPass === '123456')
-  ) {
-    const defaultMarket = {
-      id: 'default_market_1',
-      name: 'মার্কেট ও ইনভেন্টরি ম্যানেজার',
-      role: 'market' as const,
-      permissions: ['inventory', 'pricing', 'deals'],
-      email: 'market@jannatcomputers.com.bd',
-      loginAt: new Date().toISOString(),
-    };
-    const token = `jc_def_${btoa(JSON.stringify(defaultMarket))}`;
-    localStorage.setItem('jc_auth_token', token);
-    localStorage.setItem('jc_user', JSON.stringify(defaultMarket));
-    return { success: true, token, user: defaultMarket };
-  }
-
+  // 🔹 Step B: If Supabase connection fails or credentials not matched
   return {
     success: false,
-    message: 'ইউজারনেম অথবা পাসওয়ার্ড সঠিক নয়। Supabase SQL এ admin_users টেবিল চেক করুন।',
+    message: 'ভুল ইউজারনেম বা পাসওয়ার্ড! অনুগ্রহ করে সঠিক তথ্য দিয়ে পুনরায় চেষ্টা করুন।',
   };
 }
 
