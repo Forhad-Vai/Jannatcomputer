@@ -247,7 +247,7 @@ export async function loginRole(
 
   return {
     success: false,
-    message: 'ভুল ইউজারনেম বা পাসওয়ার্ড! (এডমিন: admin / admin123 | মার্কেট: market / market123)',
+    message: 'ভুল ইউজারনেম অথবা পাসওয়ার্ড! অনুগ্রহ করে সঠিক তথ্য দিয়ে পুনরায় চেষ্টা করুন।',
   };
 }
 
