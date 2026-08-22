@@ -15,6 +15,25 @@ export interface LoginResponse {
   message?: string;
 }
 
+// Safe Unicode-compatible Base64 encoder and decoder
+export function safeBase64Encode(data: any): string {
+  try {
+    const jsonStr = typeof data === 'string' ? data : JSON.stringify(data);
+    return btoa(unescape(encodeURIComponent(jsonStr)));
+  } catch {
+    return btoa(unescape(encodeURIComponent(String(data))));
+  }
+}
+
+export function safeBase64Decode(str: string): any {
+  try {
+    const jsonStr = decodeURIComponent(escape(atob(str)));
+    return JSON.parse(jsonStr);
+  } catch {
+    return null;
+  }
+}
+
 // Function to get active Supabase credentials (from env or localStorage)
 export function getSupabaseCredentials() {
   const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -134,7 +153,7 @@ export async function loginRole(
             loginAt: new Date().toISOString(),
           };
 
-          const token = `jc_sb_${btoa(JSON.stringify(tokenPayload))}`;
+          const token = `jc_sb_${safeBase64Encode(tokenPayload)}`;
           localStorage.setItem('jc_auth_token', token);
           localStorage.setItem('jc_user', JSON.stringify(tokenPayload));
 
@@ -197,7 +216,7 @@ export async function loginRole(
       phone: '01717220224',
       loginAt: new Date().toISOString(),
     };
-    const token = `jc_def_${btoa(JSON.stringify(defaultAdmin))}`;
+    const token = `jc_def_${safeBase64Encode(defaultAdmin)}`;
     localStorage.setItem('jc_auth_token', token);
     localStorage.setItem('jc_user', JSON.stringify(defaultAdmin));
     return { success: true, token, user: defaultAdmin };
@@ -220,7 +239,7 @@ export async function loginRole(
       phone: '01912345678',
       loginAt: new Date().toISOString(),
     };
-    const token = `jc_def_${btoa(JSON.stringify(defaultMarket))}`;
+    const token = `jc_def_${safeBase64Encode(defaultMarket)}`;
     localStorage.setItem('jc_auth_token', token);
     localStorage.setItem('jc_user', JSON.stringify(defaultMarket));
     return { success: true, token, user: defaultMarket };
@@ -294,7 +313,7 @@ export async function customerRegister(
         loginAt: new Date().toISOString(),
       };
 
-      const token = `jc_cust_${btoa(JSON.stringify(userPayload))}`;
+      const token = `jc_cust_${safeBase64Encode(userPayload)}`;
       localStorage.setItem('jc_auth_token', token);
       localStorage.setItem('jc_user', JSON.stringify(userPayload));
 
@@ -319,7 +338,7 @@ export async function customerRegister(
     loginAt: new Date().toISOString(),
   };
 
-  const token = `jc_cust_${btoa(JSON.stringify(userPayload))}`;
+  const token = `jc_cust_${safeBase64Encode(userPayload)}`;
   localStorage.setItem('jc_auth_token', token);
   localStorage.setItem('jc_user', JSON.stringify(userPayload));
 
@@ -370,7 +389,7 @@ export async function customerLogin(
             loginAt: new Date().toISOString(),
           };
 
-          const token = `jc_cust_${btoa(JSON.stringify(userPayload))}`;
+          const token = `jc_cust_${safeBase64Encode(userPayload)}`;
           localStorage.setItem('jc_auth_token', token);
           localStorage.setItem('jc_user', JSON.stringify(userPayload));
 
@@ -481,4 +500,5 @@ export function logoutSession(): void {
   localStorage.removeItem('jc_auth_token');
   localStorage.removeItem('jc_user');
 }
+
 
