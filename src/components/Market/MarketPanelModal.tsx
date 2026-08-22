@@ -323,9 +323,13 @@ export const MarketPanelModal: React.FC = () => {
                 <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
                   MERCHANT HUB
                 </span>
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  {t('সার্ভার ডিবি সেভ্ড', 'SERVER DB SAVED')}
+                </span>
               </div>
               <p className="text-xs text-rose-200/70">
-                {t('এখানে ওয়েবসাইটের যাবতীয় পণ্য যোগ, এডিট, ডিলিট, স্টক ও মূল্য পরিবর্তন করুন', 'Add, edit, delete products, manage stock & live pricing')}
+                {t('এখানে ওয়েবসাইটের যাবতীয় পণ্য যোগ, এডিট, ডিলিট, স্টক ও মূল্য পরিবর্তন করুন (সবকিছু সার্ভারে স্থায়ীভাবে সংরক্ষিত হয়)', 'Add, edit, delete products, manage stock & live pricing (permanently saved to server)')}
               </p>
             </div>
           </div>

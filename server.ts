@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
+import fs from 'fs';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
@@ -10,7 +11,8 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '35mb' }));
+app.use(express.urlencoded({ extended: true, limit: '35mb' }));
 
 // HMAC signing secret (kept strictly on server)
 const AUTH_SECRET = process.env.AUTH_SECRET_KEY || 'jannat_secure_jwt_session_secret_key_2026_gaibandha';
@@ -533,7 +535,222 @@ Provide:
 });
 
 // -------------------------------------------------------------
-// 8. Vite Middleware & Static Serving Setup
+// 8. Server-Side Persistent Store Database Engine (Durable File DB)
+// Ensures products, orders, banners, policies, and QR settings
+// NEVER reset or revert to default, even across browsers or restarts.
+// -------------------------------------------------------------
+const DB_DIR = path.join(process.cwd(), 'data');
+const DB_FILE = path.join(DB_DIR, 'store_database.json');
+const DB_BACKUP_FILE = path.join(DB_DIR, 'store_database.backup.json');
+
+function ensureDbDirectory(): void {
+  try {
+    if (!fs.existsSync(DB_DIR)) {
+      fs.mkdirSync(DB_DIR, { recursive: true });
+    }
+  } catch (err) {
+    console.error('Error creating data directory:', err);
+  }
+}
+
+interface PersistentStoreDatabase {
+  products?: any[];
+  footerSettings?: any;
+  heroBannerSettings?: any;
+  policySettings?: any;
+  coupons?: any[];
+  orders?: any[];
+  updatedAt?: string;
+  version?: string;
+}
+
+function loadPersistedDatabase(): PersistentStoreDatabase | null {
+  try {
+    ensureDbDirectory();
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, 'utf-8');
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error('Error reading store database file:', err);
+    // If primary is corrupted, try reading backup
+    try {
+      if (fs.existsSync(DB_BACKUP_FILE)) {
+        const backupRaw = fs.readFileSync(DB_BACKUP_FILE, 'utf-8');
+        return JSON.parse(backupRaw);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
+function savePersistedDatabase(data: PersistentStoreDatabase): boolean {
+  try {
+    ensureDbDirectory();
+    const payload = {
+      ...data,
+      updatedAt: new Date().toISOString(),
+      version: '2026.1.0',
+    };
+    const jsonStr = JSON.stringify(payload, null, 2);
+
+    // Save backup first if main exists
+    if (fs.existsSync(DB_FILE)) {
+      try {
+        fs.copyFileSync(DB_FILE, DB_BACKUP_FILE);
+      } catch {
+        // ignore
+      }
+    }
+
+    // Atomic write to temporary file then rename
+    const tempFile = path.join(DB_DIR, `store_temp_${Date.now()}.json`);
+    fs.writeFileSync(tempFile, jsonStr, 'utf-8');
+    fs.renameSync(tempFile, DB_FILE);
+    return true;
+  } catch (err) {
+    console.error('Error saving store database file:', err);
+    return false;
+  }
+}
+
+// 8.1 GET Store Data (Used on app startup by all clients)
+app.get('/api/store/data', (req: Request, res: Response): void => {
+  const data = loadPersistedDatabase();
+  if (data) {
+    res.json({
+      success: true,
+      persisted: true,
+      data,
+      updatedAt: data.updatedAt,
+    });
+  } else {
+    res.json({
+      success: true,
+      persisted: false,
+      data: null,
+      message: 'No server database yet. Client will seed initial data.',
+    });
+  }
+});
+
+// 8.2 POST Sync Store Data (Used whenever Admin/Market edits products, banners, footer, QR, coupons, or orders)
+app.post('/api/store/sync', (req: Request, res: Response): void => {
+  try {
+    const incomingData = req.body;
+    if (!incomingData || typeof incomingData !== 'object') {
+      res.status(400).json({ success: false, message: 'Invalid payload' });
+      return;
+    }
+
+    const existing = loadPersistedDatabase() || {};
+    const merged: PersistentStoreDatabase = {
+      ...existing,
+      ...(incomingData.products ? { products: incomingData.products } : {}),
+      ...(incomingData.footerSettings ? { footerSettings: incomingData.footerSettings } : {}),
+      ...(incomingData.heroBannerSettings ? { heroBannerSettings: incomingData.heroBannerSettings } : {}),
+      ...(incomingData.policySettings ? { policySettings: incomingData.policySettings } : {}),
+      ...(incomingData.coupons ? { coupons: incomingData.coupons } : {}),
+      ...(incomingData.orders ? { orders: incomingData.orders } : {}),
+    };
+
+    const saved = savePersistedDatabase(merged);
+    if (saved) {
+      res.json({
+        success: true,
+        message: 'সব ডাটা সার্ভার ডাটাবেজে স্থায়ীভাবে সেভ হয়েছে!',
+        updatedAt: new Date().toISOString(),
+        productCount: Array.isArray(merged.products) ? merged.products.length : 0,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'ডাটাবেজে ফাইল রাইট করার সময় ত্রুটি হয়েছে।',
+      });
+    }
+  } catch (error: any) {
+    console.error('API /api/store/sync error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 8.3 GET Full Database Backup JSON Download
+app.get('/api/store/backup', (req: Request, res: Response): void => {
+  const data = loadPersistedDatabase();
+  const backupData = {
+    store: 'Jannat Computers (জান্নাত কম্পিউটার্স)',
+    exportedAt: new Date().toISOString(),
+    database: data || {},
+  };
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename=jannat_computers_backup_${Date.now()}.json`);
+  res.send(JSON.stringify(backupData, null, 2));
+});
+
+// 8.4 POST Restore Database from JSON
+app.post('/api/store/restore', (req: Request, res: Response): void => {
+  try {
+    const { database, products, footerSettings, heroBannerSettings, policySettings, coupons, orders } = req.body;
+    const toRestore = database || { products, footerSettings, heroBannerSettings, policySettings, coupons, orders };
+
+    if (!toRestore || typeof toRestore !== 'object') {
+      res.status(400).json({ success: false, message: 'Invalid backup file format' });
+      return;
+    }
+
+    const saved = savePersistedDatabase(toRestore);
+    if (saved) {
+      res.json({
+        success: true,
+        message: 'ব্যাকআপ ফাইল থেকে সফলভাবে ডাটাবেজ রিস্টোর করা হয়েছে!',
+        data: toRestore,
+      });
+    } else {
+      res.status(500).json({ success: false, message: 'রিস্টোর করার সময় সমস্যা হয়েছে।' });
+    }
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 8.5 GET Database Status & Health
+app.get('/api/store/status', (req: Request, res: Response): void => {
+  try {
+    ensureDbDirectory();
+    const exists = fs.existsSync(DB_FILE);
+    let fileSizeKb = 0;
+    let modifiedTime = null;
+    let data: PersistentStoreDatabase | null = null;
+
+    if (exists) {
+      const stats = fs.statSync(DB_FILE);
+      fileSizeKb = Math.round(stats.size / 1024);
+      modifiedTime = stats.mtime.toISOString();
+      data = loadPersistedDatabase();
+    }
+
+    res.json({
+      success: true,
+      exists,
+      fileSizeKb,
+      modifiedTime,
+      productCount: data?.products?.length || 0,
+      orderCount: data?.orders?.length || 0,
+      couponCount: data?.coupons?.length || 0,
+      hasCustomFooter: Boolean(data?.footerSettings),
+      hasCustomBanners: Boolean(data?.heroBannerSettings),
+      updatedAt: data?.updatedAt || null,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// -------------------------------------------------------------
+// 9. Vite Middleware & Static Serving Setup
 // -------------------------------------------------------------
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {

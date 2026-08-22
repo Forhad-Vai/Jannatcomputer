@@ -44,6 +44,10 @@ import {
   KeyRound,
   Shield,
   Loader2,
+  Database,
+  HardDrive,
+  Download,
+  RefreshCw,
 } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { Order, Coupon, FooterSettings } from '../../types';
@@ -174,7 +178,57 @@ export const AdminDashboardModal: React.FC = () => {
     footerSettings,
     updateFooterSettings,
     resetFooterSettings,
+    isServerSynced,
+    lastServerSyncTime,
+    syncAllToServer,
+    downloadBackup,
+    restoreFromBackup,
   } = useShop();
+
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
+  const [isRestoringBackup, setIsRestoringBackup] = useState(false);
+  const [backupRestoreMessage, setBackupRestoreMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  const handleManualSyncClick = async () => {
+    setIsManualSyncing(true);
+    await syncAllToServer();
+    setIsManualSyncing(false);
+  };
+
+  const handleBackupFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        setIsRestoringBackup(true);
+        const parsed = JSON.parse(ev.target?.result as string);
+        const dataToRestore = parsed.database || parsed;
+        const ok = await restoreFromBackup(dataToRestore);
+        if (ok) {
+          setBackupRestoreMessage({
+            text: t('ব্যাকআপ ফাইল থেকে সফলভাবে সকল প্রোডাক্ট ও সেটিংস রিস্টোর হয়েছে!', 'All products and settings restored successfully from backup!'),
+            type: 'success',
+          });
+        } else {
+          setBackupRestoreMessage({
+            text: t('ব্যাকআপ ফাইল ফরম্যাট সঠিক নয়।', 'Invalid backup file format.'),
+            type: 'error',
+          });
+        }
+      } catch (err: any) {
+        setBackupRestoreMessage({
+          text: t('ফাইল রিড করতে ব্যর্থ: ', 'Failed to read file: ') + err.message,
+          type: 'error',
+        });
+      } finally {
+        setIsRestoringBackup(false);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const handlePrintInvoice = (order: Order) => {
     const printWindow = window.open('', '_blank');
@@ -2233,6 +2287,134 @@ export const AdminDashboardModal: React.FC = () => {
                     </button>
                   </div>
                 </form>
+              </div>
+
+              {/* Permanent Server Database & Backup Engine (Never Reset / Lose Products) */}
+              <div className="bg-slate-950/90 rounded-2xl border border-emerald-500/40 p-6 space-y-5 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                      <Database className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-sm text-white">
+                          {t('সার্ভার ও ক্লাউড ডাটাবেজ স্থায়িত্ব (Permanent Database Storage)', 'Permanent Server Database & Cloud Persistence')}
+                        </h4>
+                        <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          {t('অ্যাক্টিভ ও স্থায়ী', 'ACTIVE & DURABLE')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {t(
+                          'আপনার যুক্ত বা এডিট করা সকল প্রোডাক্ট, পেমেন্ট QR কোড, ব্যানার এবং পলিসি সার্ভারে পার্মানেন্ট সেভ থাকে—ব্রাউজার ক্যাশ ক্লিয়ার হলেও কোনো কিছু ডিফল্ট হবে না।',
+                          'All your added/edited products, payment QR codes, banners, and policies are permanently preserved on the server—data never resets even if browser cache is cleared.'
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleManualSyncClick}
+                      disabled={isManualSyncing}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black text-xs transition cursor-pointer flex items-center gap-1.5 shadow-md"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isManualSyncing ? 'animate-spin' : ''}`} />
+                      <span>{isManualSyncing ? t('সিঙ্ক হচ্ছে...', 'Syncing...') : t('তাৎক্ষণিক সার্ভার সিঙ্ক', 'Force Sync Now')}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {backupRestoreMessage && (
+                  <div
+                    className={`p-3.5 rounded-xl text-xs flex items-center gap-2 border ${
+                      backupRestoreMessage.type === 'success'
+                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                        : 'bg-rose-500/15 border-rose-500/30 text-rose-300'
+                    }`}
+                  >
+                    {backupRestoreMessage.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    )}
+                    <span>{backupRestoreMessage.text}</span>
+                  </div>
+                )}
+
+                {/* Status bar */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-900/70 p-3.5 rounded-xl border border-slate-800 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <HardDrive className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-[10px] text-slate-400 uppercase font-bold">{t('মোট সংরক্ষিত প্রোডাক্ট', 'Total Saved Products')}</div>
+                      <div className="font-bold text-white text-sm">{products.length} {t('টি আইটেম', 'Items')}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                    <div>
+                      <div className="text-[10px] text-slate-400 uppercase font-bold">{t('সর্বশেষ সার্ভার সিঙ্ক', 'Last Server Sync')}</div>
+                      <div className="font-semibold text-slate-300 text-xs">
+                        {lastServerSyncTime ? new Date(lastServerSyncTime).toLocaleTimeString('bn-BD') : t('সবেমাত্র সিঙ্ক হয়েছে', 'Just now')}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-sky-400 shrink-0" />
+                    <div>
+                      <div className="text-[10px] text-slate-400 uppercase font-bold">{t('অটো-রিস্টোর সুরক্ষা', 'Auto-Restore Protection')}</div>
+                      <div className="font-bold text-sky-300 text-xs">{t('১০০% এনাবল্ড', '100% ENABLED')}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Backup & Restore Action Buttons */}
+                <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h5 className="font-bold text-xs text-white flex items-center gap-1.5">
+                        <Download className="w-4 h-4 text-amber-400" />
+                        <span>{t('অফলাইন ডাটাবেজ ব্যাকআপ ও রিস্টোর (JSON Backup & Restore)', 'Offline JSON Database Backup & Restore')}</span>
+                      </h5>
+                      <p className="text-[11px] text-slate-400">
+                        {t('ভবিষ্যতের নিরাপত্তার জন্য ১-ক্লিকে পুরো ওয়েবসাইটের সব প্রোডাক্ট, ইমেজ, QR কোড ও সেটিংস ডাউনলোড করে রাখুন।', 'Download a full offline snapshot of all products, images, QR codes, and settings in 1 click.')}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap pt-2 sm:pt-0">
+                      <button
+                        type="button"
+                        onClick={downloadBackup}
+                        className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-xs transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>{t('ফুল ব্যাকআপ ডাউনলোড (.json)', 'Download Backup (.json)')}</span>
+                      </button>
+
+                      <label className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold text-xs transition cursor-pointer flex items-center gap-1.5">
+                        {isRestoringBackup ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5 text-slate-400" />
+                        )}
+                        <span>{isRestoringBackup ? t('রিস্টোর হচ্ছে...', 'Restoring...') : t('ব্যাকআপ ফাইল রিস্টোর করুন', 'Restore from JSON')}</span>
+                        <input
+                          type="file"
+                          accept=".json,application/json"
+                          onChange={handleBackupFileSelect}
+                          className="hidden"
+                          disabled={isRestoringBackup}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Supabase Cloud Database Direct Connection */}

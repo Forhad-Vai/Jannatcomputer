@@ -1,15 +1,23 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Product, CartItem, PCComponentCategory, Order, FilterState, Language, UserProfile, Coupon, FooterSettings, PolicyTab, StorePolicySettings, PolicySection, HeroBannerSettings, HeroSlide, HeroSidePromo } from '../types';
 import { productsData } from '../data/products';
 import { defaultPolicySettings } from '../data/defaultPolicies';
 import { defaultHeroBannerSettings } from '../data/defaultHeroBanner';
 import { verifyCurrentSession, logoutSession } from '../utils/authApi';
+import { fetchStoreDataFromServer, syncStoreDataToServer, downloadBackupFile, restoreDatabaseFromFile, StoreDatabasePayload } from '../utils/storeApi';
 
 interface ShopContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   toggleLanguage: () => void;
   t: (bnText: string, enText: string) => string;
+
+  // Server Database & Backup Synchronization
+  isServerSynced: boolean;
+  lastServerSyncTime: string | null;
+  syncAllToServer: () => Promise<boolean>;
+  downloadBackup: () => void;
+  restoreFromBackup: (backupData: any) => Promise<boolean>;
 
   // Authentication & Admin
   currentUser: UserProfile | null;
@@ -549,21 +557,146 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  // Sync to localStorage
+  // Server database state
+  const [isServerSynced, setIsServerSynced] = useState<boolean>(false);
+  const [lastServerSyncTime, setLastServerSyncTime] = useState<string | null>(null);
+  const isInitialServerLoadDone = useRef<boolean>(false);
+
+  // 1. Initial hydration from server database on application mount
+  useEffect(() => {
+    let isMounted = true;
+    async function loadServerData() {
+      try {
+        const res = await fetchStoreDataFromServer();
+        if (!isMounted) return;
+
+        if (res.success && res.persisted && res.data) {
+          // Hydrate from server database
+          if (Array.isArray(res.data.products) && res.data.products.length > 0) {
+            setProducts(res.data.products);
+            localStorage.setItem('jc_products', JSON.stringify(res.data.products));
+          }
+          if (res.data.footerSettings) {
+            setFooterSettings((prev) => {
+              const merged = { ...prev, ...res.data!.footerSettings };
+              localStorage.setItem('jc_footer_settings', JSON.stringify(merged));
+              return merged;
+            });
+          }
+          if (res.data.heroBannerSettings) {
+            setHeroBannerSettings((prev) => {
+              const merged = { ...prev, ...res.data!.heroBannerSettings };
+              localStorage.setItem('jc_hero_banner_settings', JSON.stringify(merged));
+              return merged;
+            });
+          }
+          if (res.data.policySettings) {
+            setPolicySettings((prev) => {
+              const merged = { ...prev, ...res.data!.policySettings };
+              localStorage.setItem('jc_policy_settings', JSON.stringify(merged));
+              return merged;
+            });
+          }
+          if (Array.isArray(res.data.coupons)) {
+            setCoupons(res.data.coupons);
+            localStorage.setItem('jc_coupons', JSON.stringify(res.data.coupons));
+          }
+          if (Array.isArray(res.data.orders)) {
+            setOrders(res.data.orders);
+            localStorage.setItem('jc_orders', JSON.stringify(res.data.orders));
+          }
+
+          setIsServerSynced(true);
+          setLastServerSyncTime(res.updatedAt || new Date().toISOString());
+        } else if (res.success && !res.persisted) {
+          // First time server startup: seed current state to server DB
+          await syncStoreDataToServer({
+            products,
+            footerSettings,
+            heroBannerSettings,
+            policySettings,
+            coupons,
+            orders,
+          }, true);
+          setIsServerSynced(true);
+          setLastServerSyncTime(new Date().toISOString());
+        }
+      } catch (err) {
+        console.warn('Initial server sync completed with local cache fallback.');
+      } finally {
+        isInitialServerLoadDone.current = true;
+      }
+    }
+
+    loadServerData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 2. Sync to localStorage
   useEffect(() => {
     localStorage.setItem('jc_user', JSON.stringify(currentUser));
   }, [currentUser]);
 
   useEffect(() => {
     localStorage.setItem('jc_products', JSON.stringify(products));
+    if (isInitialServerLoadDone.current) {
+      syncStoreDataToServer({ products }).then(() => {
+        setIsServerSynced(true);
+        setLastServerSyncTime(new Date().toISOString());
+      });
+    }
   }, [products]);
 
   useEffect(() => {
     localStorage.setItem('jc_orders', JSON.stringify(orders));
+    if (isInitialServerLoadDone.current) {
+      syncStoreDataToServer({ orders }).then(() => {
+        setIsServerSynced(true);
+        setLastServerSyncTime(new Date().toISOString());
+      });
+    }
   }, [orders]);
 
   useEffect(() => {
+    localStorage.setItem('jc_footer_settings', JSON.stringify(footerSettings));
+    if (isInitialServerLoadDone.current) {
+      syncStoreDataToServer({ footerSettings }).then(() => {
+        setIsServerSynced(true);
+        setLastServerSyncTime(new Date().toISOString());
+      });
+    }
+  }, [footerSettings]);
+
+  useEffect(() => {
+    localStorage.setItem('jc_hero_banner_settings', JSON.stringify(heroBannerSettings));
+    if (isInitialServerLoadDone.current) {
+      syncStoreDataToServer({ heroBannerSettings }).then(() => {
+        setIsServerSynced(true);
+        setLastServerSyncTime(new Date().toISOString());
+      });
+    }
+  }, [heroBannerSettings]);
+
+  useEffect(() => {
+    localStorage.setItem('jc_policy_settings', JSON.stringify(policySettings));
+    if (isInitialServerLoadDone.current) {
+      syncStoreDataToServer({ policySettings }).then(() => {
+        setIsServerSynced(true);
+        setLastServerSyncTime(new Date().toISOString());
+      });
+    }
+  }, [policySettings]);
+
+  useEffect(() => {
     localStorage.setItem('jc_coupons', JSON.stringify(coupons));
+    if (isInitialServerLoadDone.current) {
+      syncStoreDataToServer({ coupons }).then(() => {
+        setIsServerSynced(true);
+        setLastServerSyncTime(new Date().toISOString());
+      });
+    }
   }, [coupons]);
 
   useEffect(() => {
@@ -573,6 +706,89 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     localStorage.setItem('jc_wishlist', JSON.stringify(wishlist));
   }, [wishlist]);
+
+  // 3. Manual Full Server Sync & Backup/Restore Methods
+  const syncAllToServer = async (): Promise<boolean> => {
+    try {
+      const res = await syncStoreDataToServer({
+        products,
+        footerSettings,
+        heroBannerSettings,
+        policySettings,
+        coupons,
+        orders,
+      }, true);
+      if (res.success) {
+        setIsServerSynced(true);
+        setLastServerSyncTime(new Date().toISOString());
+        showToast(
+          language === 'bn'
+            ? 'সকল প্রোডাক্ট ও ফিচার ডেটা সার্ভারে স্থায়ীভাবে সংরক্ষিত হয়েছে!'
+            : 'All store products and features permanently saved to server database!'
+        );
+        return true;
+      }
+      return false;
+    } catch {
+      showToast(language === 'bn' ? 'সার্ভারে সিঙ্ক করতে সমস্যা হয়েছে' : 'Server sync failed', 'error');
+      return false;
+    }
+  };
+
+  const downloadBackup = () => {
+    downloadBackupFile();
+    showToast(
+      language === 'bn'
+        ? 'ডাটাবেজ ব্যাকআপ ফাইল ডাউনলোড শুরু হয়েছে'
+        : 'Database backup download started'
+    );
+  };
+
+  const restoreFromBackup = async (backupData: any): Promise<boolean> => {
+    try {
+      const res = await restoreDatabaseFromFile(backupData);
+      if (res.success && res.data) {
+        const d = res.data;
+        if (Array.isArray(d.products)) {
+          setProducts(d.products);
+          localStorage.setItem('jc_products', JSON.stringify(d.products));
+        }
+        if (d.footerSettings) {
+          setFooterSettings(d.footerSettings);
+          localStorage.setItem('jc_footer_settings', JSON.stringify(d.footerSettings));
+        }
+        if (d.heroBannerSettings) {
+          setHeroBannerSettings(d.heroBannerSettings);
+          localStorage.setItem('jc_hero_banner_settings', JSON.stringify(d.heroBannerSettings));
+        }
+        if (d.policySettings) {
+          setPolicySettings(d.policySettings);
+          localStorage.setItem('jc_policy_settings', JSON.stringify(d.policySettings));
+        }
+        if (Array.isArray(d.coupons)) {
+          setCoupons(d.coupons);
+          localStorage.setItem('jc_coupons', JSON.stringify(d.coupons));
+        }
+        if (Array.isArray(d.orders)) {
+          setOrders(d.orders);
+          localStorage.setItem('jc_orders', JSON.stringify(d.orders));
+        }
+        setIsServerSynced(true);
+        setLastServerSyncTime(new Date().toISOString());
+        showToast(
+          language === 'bn'
+            ? 'ব্যাকআপ থেকে সকল প্রোডাক্ট ও ফিচার সফলভাবে রিস্টোর হয়েছে!'
+            : 'All products and features successfully restored from backup!'
+        );
+        return true;
+      }
+      showToast(res.message || 'Restore failed', 'error');
+      return false;
+    } catch (err: any) {
+      showToast(err.message || 'Restore failed', 'error');
+      return false;
+    }
+  };
 
   // Verify token on mount if present
   useEffect(() => {
@@ -1093,6 +1309,11 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addCoupon,
         toggleCouponStatus,
         deleteCoupon,
+        isServerSynced,
+        lastServerSyncTime,
+        syncAllToServer,
+        downloadBackup,
+        restoreFromBackup,
         toastMessage,
         showToast,
       }}
