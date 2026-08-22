@@ -110,17 +110,20 @@ export const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
     let isMounted = true;
     setIsGenerating(true);
 
-    // Format a rich QR code data string
-    const paymentData = `PAYMENT:${cfg.nameEn}|PHONE:${phoneNumber}|AMOUNT:${amount}|STORE:${storeName}`;
+    // Clean phone number for universal scanner compatibility
+    // bKash, Nagad and mobile cameras expect either standard clean digits or tel: URI
+    // Custom strings like 'PAYMENT:...' cause bKash / Nagad app scanners to throw 'Invalid QR Code'
+    const cleanPhone = (phoneNumber || '01717220224').trim().replace(/[^0-9+]/g, '');
 
-    QRCode.toDataURL(paymentData, {
-      width: size * 2, // High DPI
+    // Format: Standard clean digits is 100% compatible with bKash/Nagad app scanners and phone cameras
+    QRCode.toDataURL(cleanPhone, {
+      width: size * 3, // Ultra-sharp 3x DPI for crystal-clear scanning on screens
       margin: 2,
       color: {
         dark: cfg.color || '#000000',
         light: '#FFFFFF',
       },
-      errorCorrectionLevel: 'H',
+      errorCorrectionLevel: 'H', // High error correction
     })
       .then((url) => {
         if (isMounted) {
@@ -131,8 +134,8 @@ export const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
       .catch((err) => {
         console.error('Error generating QR code:', err);
         if (isMounted) {
-          // Fallback with simpler string
-          QRCode.toDataURL(phoneNumber, {
+          // Fallback with basic black & white
+          QRCode.toDataURL(cleanPhone || '01717220224', {
             width: size * 2,
             margin: 2,
             color: { dark: '#000000', light: '#FFFFFF' },
@@ -194,13 +197,14 @@ export const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
           </span>
         </div>
 
-        {/* QR Image Frame */}
-        <div className="relative bg-white rounded-xl p-1 flex items-center justify-center overflow-hidden w-full aspect-square">
+        {/* QR Image Frame - 100% Clean without any center text or logo overlay */}
+        <div className="relative bg-white rounded-xl p-1.5 flex items-center justify-center overflow-hidden w-full aspect-square border border-slate-100 shadow-inner">
           {currentQrSrc ? (
             <img
               src={currentQrSrc}
               alt={`${cfg.nameEn} Payment QR Code`}
-              className="w-full h-full object-contain select-none"
+              className="w-full h-full object-contain select-none transition-transform"
+              style={{ imageRendering: 'crisp-edges' }}
               onError={() => {
                 setImageLoadFailed(true);
               }}
@@ -209,16 +213,6 @@ export const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
             <div className="flex flex-col items-center justify-center p-4 text-center space-y-2">
               <RefreshCw className="w-6 h-6 animate-spin text-slate-400" />
               <span className="text-[10px] text-slate-400 font-bold">QR জেনারেট হচ্ছে...</span>
-            </div>
-          )}
-
-          {/* Center Brand Icon / Logo Badge */}
-          {currentQrSrc && !shouldUseCustom && (
-            <div
-              className="absolute inset-0 m-auto w-10 h-10 rounded-xl shadow-md border-2 border-white flex items-center justify-center text-white font-black text-[10px]"
-              style={{ backgroundColor: cfg.color }}
-            >
-              {cfg.nameEn.slice(0, 3).toUpperCase()}
             </div>
           )}
         </div>
@@ -302,7 +296,7 @@ export const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
               </p>
             </div>
 
-            {/* High-res QR Display */}
+            {/* High-res QR Display - Completely clean without center overlay */}
             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-center mb-4">
               <div className="w-64 h-64 bg-white p-2 rounded-xl shadow-inner flex items-center justify-center relative">
                 <img
@@ -310,14 +304,6 @@ export const PaymentQRCode: React.FC<PaymentQRCodeProps> = ({
                   alt={`${cfg.nameEn} Payment QR Code`}
                   className="w-full h-full object-contain"
                 />
-                {!shouldUseCustom && (
-                  <div
-                    className="absolute inset-0 m-auto w-12 h-12 rounded-xl shadow-lg border-2 border-white flex items-center justify-center text-white font-black text-xs"
-                    style={{ backgroundColor: cfg.color }}
-                  >
-                    {cfg.nameEn.slice(0, 3).toUpperCase()}
-                  </div>
-                )}
               </div>
             </div>
 

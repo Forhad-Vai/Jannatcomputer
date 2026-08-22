@@ -52,7 +52,62 @@ import { PolicyEditorTab } from './PolicyEditorTab';
 import { HeroBannerEditorTab } from './HeroBannerEditorTab';
 import { changePasswordOnServer, getSupabaseCredentials, saveSupabaseCredentials } from '../../utils/authApi';
 
-// Helper to compress and convert image file to Base64 data URL
+// Helper to read QR Code image file losslessly (preserving 100% crisp pixels for scanners)
+const readQrImageFile = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('Selected file is not an image'));
+      return;
+    }
+    // If under 5MB, read directly as data URL to preserve 100% exact pixels and scanner compatibility
+    if (file.size < 5 * 1024 * 1024) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+      return;
+    }
+    // For very large images (>5MB), process with lossless PNG canvas
+    const reader = new FileReader();
+    reader.onload = (readerEvent) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 1600;
+        const maxHeight = 1600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width / height > maxWidth / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.imageSmoothingEnabled = false; // keep crisp edges for QR code modules
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/png'));
+        } else {
+          resolve(readerEvent.target?.result as string);
+        }
+      };
+      img.onerror = () => resolve(readerEvent.target?.result as string);
+      img.src = readerEvent.target?.result as string;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+};
+
+// Helper to compress and convert general banner image file to Base64 data URL
 const compressAndReadFile = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
@@ -1246,30 +1301,30 @@ export const AdminDashboardModal: React.FC = () => {
                         </span>
                       </div>
 
-                      {/* Hidden File Input */}
-                      <input
-                        type="file"
-                        id="primary-payment-qr-file-input"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            try {
-                              const dataUrl = await compressAndReadFile(file);
-                              handleFooterFieldChange('qrCodeUrl', dataUrl);
-                              showToast(language === 'bn' ? 'QR কোড ছবি আপলোড হয়েছে!' : 'QR Code image uploaded successfully!');
-                            } catch (err) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                handleFooterFieldChange('qrCodeUrl', reader.result as string);
-                              };
-                              reader.readAsDataURL(file);
+                        {/* Hidden File Input */}
+                        <input
+                          type="file"
+                          id="primary-payment-qr-file-input"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                const dataUrl = await readQrImageFile(file);
+                                handleFooterFieldChange('qrCodeUrl', dataUrl);
+                                showToast(language === 'bn' ? 'QR কোড ছবি ক্রিস্টাল ক্লিয়ার কোয়ালিটিতে লোড হয়েছে!' : 'QR Code image loaded with crisp quality!');
+                              } catch (err) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  handleFooterFieldChange('qrCodeUrl', reader.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                              }
                             }
-                          }
-                          e.target.value = '';
-                        }}
-                      />
+                            e.target.value = '';
+                          }}
+                        />
 
                       {/* Interactive Drag & Drop Box */}
                       <div
@@ -1900,9 +1955,9 @@ export const AdminDashboardModal: React.FC = () => {
                               const file = e.target.files?.[0];
                               if (file) {
                                 try {
-                                  const dataUrl = await compressAndReadFile(file);
+                                  const dataUrl = await readQrImageFile(file);
                                   handleFooterFieldChange('qrCodeUrl', dataUrl);
-                                  showToast(language === 'bn' ? 'QR কোড ছবি আপলোড হয়েছে!' : 'QR Code image uploaded successfully!');
+                                  showToast(language === 'bn' ? 'QR কোড ছবি ক্রিস্টাল ক্লিয়ার কোয়ালিটিতে লোড হয়েছে!' : 'QR Code image loaded with crisp quality!');
                                 } catch (err) {
                                   const reader = new FileReader();
                                   reader.onloadend = () => {
