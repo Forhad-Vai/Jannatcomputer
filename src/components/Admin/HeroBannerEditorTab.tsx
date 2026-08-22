@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   SlidersHorizontal,
   Plus,
@@ -20,10 +20,63 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  ExternalLink,
+  UploadCloud,
+  FileImage,
+  RefreshCw,
+  X,
+  Link as LinkIcon,
+  Check,
 } from 'lucide-react';
 import { useShop } from '../../context/ShopContext';
 import { HeroSlide, HeroSidePromo, HeroBannerSettings } from '../../types';
+
+// Helper to compress and convert image file to Base64 data URL
+const compressAndReadFile = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('Selected file is not an image'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (readerEvent) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 1600;
+        const maxHeight = 900;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width / height > maxWidth / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          resolve(dataUrl);
+        } else {
+          resolve(readerEvent.target?.result as string);
+        }
+      };
+      img.onerror = () => {
+        resolve(readerEvent.target?.result as string);
+      };
+      img.src = readerEvent.target?.result as string;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+};
 
 export const HeroBannerEditorTab: React.FC = () => {
   const {
@@ -40,6 +93,43 @@ export const HeroBannerEditorTab: React.FC = () => {
     heroBannerSettings.slides[0]?.id || null
   );
   const [activeSubTab, setActiveSubTab] = useState<'slides' | 'sidePromos' | 'settings'>('slides');
+  const [uploadingSlideId, setUploadingSlideId] = useState<string | null>(null);
+  const [dragOverSlideId, setDragOverSlideId] = useState<string | null>(null);
+  const [showUrlInputForSlide, setShowUrlInputForSlide] = useState<{ [key: string]: boolean }>({});
+  const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+
+  const handleFileUpload = async (slideId: string, file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast(
+        language === 'bn'
+          ? 'অনুগ্রহ করে শুধুমাত্র ছবি ফাইল (JPG, PNG, WebP) সিলেক্ট করুন!'
+          : 'Please select an image file (JPG, PNG, WebP)!',
+        'error'
+      );
+      return;
+    }
+
+    try {
+      setUploadingSlideId(slideId);
+      const dataUrl = await compressAndReadFile(file);
+      handleSlideChange(slideId, 'image', dataUrl);
+      showToast(
+        language === 'bn'
+          ? 'ছবি সফলভাবে আপলোড করা হয়েছে!'
+          : 'Image uploaded successfully!'
+      );
+    } catch (err) {
+      showToast(
+        language === 'bn'
+          ? 'ছবি আপলোডে সমস্যা হয়েছে। আবার চেষ্টা করুন।'
+          : 'Failed to process image. Please try again.',
+        'error'
+      );
+    } finally {
+      setUploadingSlideId(null);
+    }
+  };
 
   React.useEffect(() => {
     setFormData(heroBannerSettings);
@@ -484,33 +574,163 @@ export const HeroBannerEditorTab: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Image URL & Presets */}
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-1">
-                          {t('ব্যানার ইমেজ লিংক (Image URL)', 'Banner Image URL')} *
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="url"
-                            value={slide.image || ''}
-                            onChange={(e) => handleSlideChange(slide.id, 'image', e.target.value)}
-                            placeholder="https://images.unsplash.com/photo-..."
-                            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-rose-500 focus:outline-none font-mono"
-                            required
-                          />
+                      {/* Direct Image Upload & Selector */}
+                      <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                            <UploadCloud className="w-4 h-4 text-amber-400" />
+                            <span>{t('সরাসরি ব্যানার ছবি আপলোড (Direct Image Upload)', 'Direct Banner Image Upload')} *</span>
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setShowUrlInputForSlide((prev) => ({
+                                ...prev,
+                                [slide.id]: !prev[slide.id],
+                              }))
+                            }
+                            className="text-[11px] text-amber-400 hover:text-amber-300 underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <LinkIcon className="w-3 h-3" />
+                            <span>
+                              {showUrlInputForSlide[slide.id]
+                                ? t('লিংক ইনপুট বন্ধ করুন', 'Hide URL Input')
+                                : t('বা লিংক দিয়ে ছবি দিন', 'Or use image link')}
+                            </span>
+                          </button>
                         </div>
 
-                        {/* Quick Presets */}
-                        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[11px] text-slate-400 mr-1">
-                            {t('ছবি প্রিসেট:', 'Photo presets:')}
+                        {/* Hidden file input */}
+                        <input
+                          type="file"
+                          ref={(el) => {
+                            fileInputRefs.current[slide.id] = el;
+                          }}
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(slide.id, file);
+                            // reset input value so re-selecting same file fires onChange
+                            e.target.value = '';
+                          }}
+                          className="hidden"
+                        />
+
+                        {/* Drag and Drop / Click Upload Box */}
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDragOverSlideId(slide.id);
+                          }}
+                          onDragLeave={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDragOverSlideId(null);
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDragOverSlideId(null);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) handleFileUpload(slide.id, file);
+                          }}
+                          onClick={() => fileInputRefs.current[slide.id]?.click()}
+                          className={`relative border-2 border-dashed rounded-xl p-4 sm:p-5 text-center transition cursor-pointer flex flex-col items-center justify-center gap-2.5 ${
+                            dragOverSlideId === slide.id
+                              ? 'border-amber-400 bg-amber-500/10 scale-[1.01]'
+                              : 'border-slate-600 bg-slate-900/80 hover:border-amber-500/60 hover:bg-slate-900'
+                          }`}
+                        >
+                          {uploadingSlideId === slide.id ? (
+                            <div className="py-4 flex flex-col items-center gap-2">
+                              <RefreshCw className="w-7 h-7 text-amber-400 animate-spin" />
+                              <span className="text-xs font-bold text-amber-400">
+                                {t('ছবি প্রসেস ও আপলোড হচ্ছে...', 'Processing & uploading image...')}
+                              </span>
+                            </div>
+                          ) : slide.image ? (
+                            <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4">
+                              <div className="flex items-center gap-3 w-full sm:w-auto">
+                                <div className="relative w-20 h-14 rounded-lg overflow-hidden border border-slate-700 bg-slate-950 shrink-0 shadow">
+                                  <img
+                                    src={slide.image}
+                                    alt="current"
+                                    referrerPolicy="no-referrer"
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                                <div className="text-left">
+                                  <div className="text-xs font-black text-emerald-400 flex items-center gap-1">
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>{t('ছবি সিলেক্ট করা আছে', 'Image Selected')}</span>
+                                  </div>
+                                  <div className="text-[11px] text-slate-400 mt-0.5 line-clamp-1 max-w-[200px] sm:max-w-xs font-mono">
+                                    {slide.image.startsWith('data:')
+                                      ? t('ডিভাইস থেকে আপলোডকৃত ইমেজ (Local Upload)', 'Uploaded from local device')
+                                      : slide.image}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    fileInputRefs.current[slide.id]?.click();
+                                  }}
+                                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-lg text-xs flex items-center gap-1.5 transition shadow cursor-pointer"
+                                >
+                                  <UploadCloud className="w-3.5 h-3.5" />
+                                  <span>{t('নতুন ছবি আপলোড', 'Change / Upload New')}</span>
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="py-2 flex flex-col items-center gap-1.5">
+                              <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center">
+                                <UploadCloud className="w-6 h-6" />
+                              </div>
+                              <span className="text-xs font-black text-white">
+                                {t('কম্পিউটার বা মোবাইল থেকে সরাসরি ছবি আপলোড করুন', 'Click to browse or Drag & Drop photo here')}
+                              </span>
+                              <span className="text-[11px] text-slate-400">
+                                {t('JPG, PNG, WebP (অটো রিসাইজ ও কম্প্রেশন সহ)', 'Supports JPG, PNG, WebP with auto optimization')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Optional URL Input if toggled */}
+                        {showUrlInputForSlide[slide.id] && (
+                          <div className="pt-2 border-t border-slate-700/80">
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                              {t('অনলাইন ইমেজ লিংক (Image Web URL)', 'Image Web URL')}
+                            </label>
+                            <input
+                              type="url"
+                              value={slide.image || ''}
+                              onChange={(e) => handleSlideChange(slide.id, 'image', e.target.value)}
+                              placeholder="https://images.unsplash.com/photo-..."
+                              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 focus:outline-none font-mono"
+                            />
+                          </div>
+                        )}
+
+                        {/* Quick Stock Presets */}
+                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                          <span className="text-[11px] text-slate-400 mr-1 flex items-center gap-1">
+                            <FileImage className="w-3 h-3 text-slate-400" />
+                            <span>{t('রেডিমেড প্রিসেট ছবি:', 'Sample Presets:')}</span>
                           </span>
                           {stockImagePresets.map((preset, pIdx) => (
                             <button
                               key={pIdx}
                               type="button"
                               onClick={() => handleSlideChange(slide.id, 'image', preset.url)}
-                              className="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded border border-slate-700 transition cursor-pointer"
+                              className="text-[10px] bg-slate-900 hover:bg-slate-700 text-slate-300 hover:text-white px-2 py-0.5 rounded-md border border-slate-700 transition cursor-pointer"
                             >
                               {preset.label}
                             </button>
