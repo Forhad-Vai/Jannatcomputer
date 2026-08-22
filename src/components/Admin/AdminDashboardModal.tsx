@@ -458,7 +458,7 @@ export const AdminDashboardModal: React.FC = () => {
     printWindow.document.close();
   };
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'coupons' | 'policies' | 'footer' | 'hero' | 'security'>('orders');
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'payment' | 'hero' | 'coupons' | 'policies' | 'footer' | 'security'>('orders');
   const [footerFormData, setFooterFormData] = useState<FooterSettings>(footerSettings);
   const [footerSubTab, setFooterSubTab] = useState<'general' | 'contact' | 'social' | 'payment'>('general');
 
@@ -627,6 +627,19 @@ export const AdminDashboardModal: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setActiveTab('payment')}
+              className={`text-xs px-3 py-1.5 rounded-lg border transition cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                activeTab === 'payment'
+                  ? 'bg-amber-500 text-slate-950 font-black border-amber-400'
+                  : 'bg-slate-800 hover:bg-amber-950/40 text-amber-300 hover:text-amber-200 border-amber-500/40'
+              }`}
+              title={t('পেমেন্ট নম্বর ও QR কোড সরাসরি এডিট করুন', 'Edit Payment Number & QR Code')}
+            >
+              <QrCode className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-bold">{t('পেমেন্ট ও QR কোড', 'Payment & QR')}</span>
+            </button>
+
+            <button
               onClick={() => {
                 closeModal();
                 openModal('market');
@@ -657,18 +670,18 @@ export const AdminDashboardModal: React.FC = () => {
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-2.5 bg-slate-950/70 border-b border-slate-800 overflow-x-auto text-xs font-bold scrollbar-none">
+        {/* Navigation Tabs - Fully Responsive and Categorized */}
+        <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-2.5 bg-slate-950 border-b border-slate-800 overflow-x-auto text-xs font-bold scrollbar-thin scrollbar-thumb-slate-700">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
               activeTab === 'orders'
                 ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800 bg-slate-900/60'
             }`}
           >
             <ShoppingCart className="w-4 h-4" />
-            <span>{t('অর্ডার প্রসেসিং ও ডেলিভারি', 'Orders & Deliveries')}</span>
+            <span>{t('১. অর্ডার প্রসেসিং ও ডেলিভারি', '1. Orders & Deliveries')}</span>
             {pendingOrdersCount > 0 && (
               <span className="bg-rose-600 text-white font-black px-2 py-0.2 rounded-full text-[10px] animate-pulse">
                 {pendingOrdersCount} new
@@ -677,27 +690,45 @@ export const AdminDashboardModal: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
-              activeTab === 'overview'
-                ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            onClick={() => setActiveTab('payment')}
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer whitespace-nowrap border ${
+              activeTab === 'payment'
+                ? 'bg-amber-500 text-slate-950 font-black border-amber-400 shadow-md ring-2 ring-amber-500/30'
+                : 'text-amber-300 hover:text-amber-100 hover:bg-amber-950/40 bg-slate-900 border-amber-500/40'
             }`}
           >
-            <LayoutDashboard className="w-4 h-4" />
-            <span>{t('সেলস ও রেভিনিউ রিপোর্ট', 'Sales & Financials')}</span>
+            <QrCode className="w-4 h-4 text-amber-400" />
+            <span>{t('২. পেমেন্ট ও QR কোড সেটিংস', '2. Payment & QR Settings')}</span>
+            <span className="bg-rose-600 text-white px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase tracking-wider animate-pulse">
+              bKash / Nagad
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('hero')}
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'hero'
+                ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800 bg-slate-900/60'
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>{t('৩. হিরো ব্যানার (Hero CMS)', '3. Hero Banner CMS')}</span>
+            <span className="bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase">
+              Banners
+            </span>
           </button>
 
           <button
             onClick={() => setActiveTab('coupons')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
               activeTab === 'coupons'
                 ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800 bg-slate-900/60'
             }`}
           >
             <Tag className="w-4 h-4" />
-            <span>{t('ডিসকাউন্ট কুপন ও ভাউচার', 'Discount Coupons')}</span>
+            <span>{t('৪. ডিসকাউন্ট কুপন', '4. Coupons')}</span>
             <span className="bg-slate-800 px-1.5 py-0.2 rounded-full text-[10px]">
               {coupons.length}
             </span>
@@ -705,62 +736,53 @@ export const AdminDashboardModal: React.FC = () => {
 
           <button
             onClick={() => setActiveTab('policies')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
               activeTab === 'policies'
                 ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800 bg-slate-900/60'
             }`}
           >
             <FileCheck2 className="w-4 h-4" />
-            <span>{t('পলিসি ও তথ্য এডিটর (CMS)', 'Policy & Info CMS')}</span>
+            <span>{t('৫. পলিসি পেজ (Policy CMS)', '5. Policy CMS')}</span>
             <span className="bg-emerald-500 text-slate-950 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase">
               8 Pages
             </span>
           </button>
 
           <button
-            onClick={() => setActiveTab('hero')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
-              activeTab === 'hero'
+            onClick={() => setActiveTab('footer')}
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'footer'
                 ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800 bg-slate-900/60'
             }`}
           >
-            <SlidersHorizontal className="w-4 h-4" />
-            <span>{t('হিরো ব্যানার ও প্রমোশন (Hero CMS)', 'Hero Banner CMS')}</span>
-            <span className="bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase">
-              Banners
-            </span>
+            <Store className="w-4 h-4" />
+            <span>{t('৬. ফুটার ও শপ তথ্য', '6. Footer & Store Info')}</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('footer')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
-              activeTab === 'footer'
+            onClick={() => setActiveTab('overview')}
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'overview'
                 ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800 bg-slate-900/60'
             }`}
           >
-            <QrCode className="w-4 h-4 text-amber-400" />
-            <span>{t('ফুটার, পেমেন্ট ও QR কোড সেটিংস', 'Footer, Payment & QR Settings')}</span>
-            <span className="bg-rose-600 text-white px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase">
-              QR Code
-            </span>
+            <LayoutDashboard className="w-4 h-4" />
+            <span>{t('৭. সেলস রিপোর্ট', '7. Sales & Revenue')}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('security')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
               activeTab === 'security'
                 ? 'bg-amber-500 text-slate-950 font-black shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800 bg-slate-900/60'
             }`}
           >
             <ShieldCheck className="w-4 h-4" />
-            <span>{t('নিরাপত্তা ও পাসওয়ার্ড (RBAC)', 'Security & RBAC')}</span>
-            <span className="bg-emerald-500 text-slate-950 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase">
-              Encrypted
-            </span>
+            <span>{t('৮. সিকিউরিটি ও ব্যাকআপ', '8. Security & DB')}</span>
           </button>
         </div>
 
@@ -1138,6 +1160,230 @@ export const AdminDashboardModal: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB: PAYMENT & QR CODE MANAGEMENT (PRIMARY CMS) */}
+          {activeTab === 'payment' && (
+            <div className="space-y-6">
+              {/* Header card */}
+              <div className="bg-gradient-to-r from-amber-950/60 via-slate-900 to-slate-900 p-5 sm:p-6 rounded-2xl border border-amber-500/40 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center justify-center shrink-0 shadow-md">
+                    <QrCode className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-black text-white">
+                        {t('বিকাশ, নগদ ও রকেট পেমেন্ট QR কোড সেটিংস', 'bKash, Nagad & Rocket Payment QR Code Settings')}
+                      </h3>
+                      <span className="bg-rose-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        Live Checkout QR
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1">
+                      {t(
+                        'গ্রাহকদের চেকআউটে পেমেন্ট করার জন্য অফিসিয়াল বিকাশ/নগদ নম্বর এবং মার্চেন্ট QR কোডের ছবি আপলোড বা আপডেট করুন।',
+                        'Configure official payment receiving phone number and custom merchant QR code image displayed to customers during checkout.'
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleFooterFieldChange('paymentPhone', '01717220224');
+                    handleFooterFieldChange('qrCodeUrl', '');
+                    showToast(t('পেমেন্ট ডিফল্ট সেটিংস রিস্টোর করা হয়েছে।', 'Payment defaults restored.'), 'info');
+                  }}
+                  className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition border border-slate-700 shrink-0 cursor-pointer flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>{t('ডিফল্ট রিস্টোর', 'Reset Defaults')}</span>
+                </button>
+              </div>
+
+              {/* Main Form */}
+              <form onSubmit={handleSaveFooter} className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* Left Column: Phone & Direct Upload (7 cols) */}
+                  <div className="lg:col-span-7 space-y-5">
+                    {/* Official Phone Number Card */}
+                    <div className="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 space-y-3 shadow-md">
+                      <label className="block text-xs font-black text-slate-200 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Phone className="w-4 h-4 text-amber-400" />
+                          <span>{t('পেমেন্ট গ্রহণের অফিসিয়াল মোবাইল নম্বর *', 'Official Payment Receiving Mobile Number *')}</span>
+                        </span>
+                        <span className="text-[11px] text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                          bKash • Nagad • Rocket • Upay
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={footerFormData.paymentPhone}
+                        onChange={(e) => handleFooterFieldChange('paymentPhone', e.target.value)}
+                        placeholder="e.g. 01717220224"
+                        className="w-full bg-slate-950 border-2 border-slate-700 focus:border-amber-500 rounded-xl px-4 py-3 text-base text-rose-400 outline-hidden font-mono font-black shadow-inner tracking-wider"
+                      />
+                      <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <span>💡</span>
+                        <span>{t('এই নম্বরটি গ্রাহক চেকআউট পেজে কপি করতে পারবে এবং QR কোডেও এই নম্বর স্বয়ংক্রিয়ভাবে সংযুক্ত হবে।', 'Customers can copy this number at checkout, and dynamic QR codes will also encode this number.')}</span>
+                      </p>
+                    </div>
+
+                    {/* Direct QR Image Upload Card */}
+                    <div className="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 space-y-4 shadow-md">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-black text-slate-200 flex items-center gap-1.5">
+                          <Upload className="w-4 h-4 text-amber-400" />
+                          <span>{t('মার্চেন্ট বা পার্সোনাল QR কোড ছবি আপলোড', 'Upload Custom Payment QR Image')}</span>
+                        </label>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {t('মোবাইল / কম্পিউটার থেকে সরাসরি', 'Direct from device')}
+                        </span>
+                      </div>
+
+                      {/* Hidden File Input */}
+                      <input
+                        type="file"
+                        id="primary-payment-qr-file-input"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            try {
+                              const dataUrl = await compressAndReadFile(file);
+                              handleFooterFieldChange('qrCodeUrl', dataUrl);
+                              showToast(language === 'bn' ? 'QR কোড ছবি আপলোড হয়েছে!' : 'QR Code image uploaded successfully!');
+                            } catch (err) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                handleFooterFieldChange('qrCodeUrl', reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+
+                      {/* Interactive Drag & Drop Box */}
+                      <div
+                        onClick={() => document.getElementById('primary-payment-qr-file-input')?.click()}
+                        className="cursor-pointer bg-slate-950/80 hover:bg-slate-950 border-2 border-dashed border-amber-500/60 hover:border-amber-400 rounded-2xl p-6 text-center transition flex flex-col items-center justify-center gap-3 group shadow-inner"
+                      >
+                        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 group-hover:bg-amber-500/20 text-amber-400 flex items-center justify-center transition border border-amber-500/20 group-hover:scale-105 shadow">
+                          <Upload className="w-7 h-7" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-black text-white group-hover:text-amber-400 transition block">
+                            {t('ফোন বা কম্পিউটার থেকে QR কোড ছবি সিলেক্ট করুন', 'Click to Select QR Code Photo File')}
+                          </span>
+                          <span className="text-xs text-slate-400 block mt-1">
+                            {t('বিকাশ বা নগদ মার্চেন্ট QR কোডের ছবি / স্ক্রিনশট (JPG, PNG, WEBP)', 'bKash/Nagad merchant QR photo or screenshot (JPG, PNG, WEBP)')}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="px-4 py-1.5 bg-amber-500 group-hover:bg-amber-400 text-slate-950 text-xs font-black rounded-lg shadow pointer-events-none"
+                        >
+                          {t('ফাইল ব্রাউজ করুন', 'Browse Image File')}
+                        </button>
+                      </div>
+
+                      {/* Web Image URL Alternative */}
+                      <div className="pt-2">
+                        <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                          {t('অথবা অনলাইন ইমেজ লিংক দিন (URL):', 'Or enter image web URL:')}
+                        </label>
+                        <input
+                          type="text"
+                          value={footerFormData.qrCodeUrl}
+                          onChange={(e) => handleFooterFieldChange('qrCodeUrl', e.target.value)}
+                          placeholder="https://... অথবা খালি রাখলে স্বয়ংক্রিয় স্মার্ট ভেক্টর QR কোড তৈরি হবে"
+                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-amber-500 outline-hidden font-mono"
+                        />
+                      </div>
+
+                      {footerFormData.qrCodeUrl ? (
+                        <div className="flex items-center justify-between p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl">
+                          <span className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>{t('কাস্টম মার্চেন্ট QR কোড সক্রিয় আছে', 'Custom Merchant QR Image is Active')}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleFooterFieldChange('qrCodeUrl', '');
+                              showToast(t('ভেক্টর QR কোড রিসেট করা হয়েছে।', 'Reset to smart vector QR.'), 'info');
+                            }}
+                            className="text-xs text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
+                          >
+                            {t('রিমুভ করে ভেক্টর QR ব্যবহার করুন', 'Remove & Use Dynamic Vector QR')}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-blue-950/40 border border-blue-500/30 rounded-xl text-xs text-blue-300 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0" />
+                          <span>{t('কোনো ছবি না দিলে সিস্টেম স্বয়ংক্রিয়ভাবে নম্বরের সাথে স্মার্ট কিউআর তৈরি করবে।', 'If no custom image is uploaded, system renders an interactive smart dynamic QR.')}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Live Interactive QR Preview (5 cols) */}
+                  <div className="lg:col-span-5 bg-slate-900/90 p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                        <QrCode className="w-4 h-4" />
+                        <span>{t('লাইভ স্মার্ট QR কোড প্রিভিউ:', 'Live Smart QR Preview:')}</span>
+                      </span>
+                      <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-bold">
+                        {footerFormData.qrCodeUrl ? 'Custom Image Mode' : 'Smart Dynamic Vector'}
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 flex flex-col items-center justify-center text-center shadow-inner">
+                      <PaymentQRCode
+                        paymentMethod="bkash"
+                        phoneNumber={footerFormData.paymentPhone || '01717220224'}
+                        amount={5000}
+                        customImageUrl={footerFormData.qrCodeUrl}
+                        storeName={footerFormData.storeName}
+                        size={175}
+                        showControls={true}
+                      />
+
+                      <div className="mt-4 pt-3 border-t border-slate-800/80 w-full text-center space-y-1">
+                        <span className="text-xs font-bold text-white block">
+                          {t('গ্রাহক চেকআউট ভিউ', 'Customer Checkout Preview')}
+                        </span>
+                        <span className="text-[11px] text-slate-400 block max-w-xs mx-auto">
+                          {t(
+                            'গ্রাহক অর্ডার কনফার্মেশনের সময় এই QR কোডটি সরাসরি স্ক্যান করে টাকা পাঠাতে পারবেন।',
+                            'Customers will scan this exact QR code during checkout to send payment.'
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="pt-3 flex justify-end border-t border-slate-800">
+                  <button
+                    type="submit"
+                    className="px-8 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-sm font-black transition cursor-pointer flex items-center gap-2 shadow-xl shadow-amber-950/70 hover:scale-[1.01]"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{t('পেমেন্ট ও QR কোড তথ্য সেভ করুন', 'Save Payment & QR Code Settings')}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
