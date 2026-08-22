@@ -52,6 +52,54 @@ import { PolicyEditorTab } from './PolicyEditorTab';
 import { HeroBannerEditorTab } from './HeroBannerEditorTab';
 import { changePasswordOnServer, getSupabaseCredentials, saveSupabaseCredentials } from '../../utils/authApi';
 
+// Helper to compress and convert image file to Base64 data URL
+const compressAndReadFile = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (!file.type.startsWith('image/')) {
+      reject(new Error('Selected file is not an image'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (readerEvent) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 1200;
+        const maxHeight = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width / height > maxWidth / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+          resolve(dataUrl);
+        } else {
+          resolve(readerEvent.target?.result as string);
+        }
+      };
+      img.onerror = () => {
+        resolve(readerEvent.target?.result as string);
+      };
+      img.src = readerEvent.target?.result as string;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+};
+
 export const AdminDashboardModal: React.FC = () => {
   const {
     language,
@@ -693,10 +741,10 @@ export const AdminDashboardModal: React.FC = () => {
                 : 'text-slate-400 hover:text-white hover:bg-slate-800'
             }`}
           >
-            <Store className="w-4 h-4" />
-            <span>{t('ফুটার ও শপ তথ্য সেটিংস', 'Footer & Shop Info')}</span>
+            <QrCode className="w-4 h-4 text-amber-400" />
+            <span>{t('ফুটার, পেমেন্ট ও QR কোড সেটিংস', 'Footer, Payment & QR Settings')}</span>
             <span className="bg-rose-600 text-white px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase">
-              Edit
+              QR Code
             </span>
           </button>
 
@@ -1554,97 +1602,157 @@ export const AdminDashboardModal: React.FC = () => {
                 )}
 
                 {footerSubTab === 'payment' && (
-                  <div className="bg-slate-800/80 p-4 rounded-xl border border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
-                    <div className="space-y-4">
+                  <div className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700 space-y-5">
+                    <div className="flex items-center gap-3 border-b border-slate-700/80 pb-3">
+                      <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        <QrCode className="w-5 h-5" />
+                      </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-1">
-                          {t('পেমেন্ট গ্রহণের অফিশিয়াল মোবাইল নম্বর *', 'Official Payment Mobile Number *')}
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={footerFormData.paymentPhone}
-                          onChange={(e) => handleFooterFieldChange('paymentPhone', e.target.value)}
-                          placeholder="e.g. 01717220224"
-                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-rose-400 focus:border-amber-500 outline-hidden font-mono font-bold"
-                        />
-                        <p className="text-[11px] text-slate-400 mt-1">
-                          বিকাশ, নগদ, রকেট ও উপায় ওয়ালেট নম্বর হিসেবে ব্যবহৃত হবে।
+                        <h4 className="font-extrabold text-sm text-white">
+                          {t('বিকাশ / নগদ / রকেট পেমেন্ট ও QR কোড ম্যানেজমেন্ট', 'Bkash, Nagad, Rocket Payment & QR Management')}
+                        </h4>
+                        <p className="text-xs text-slate-400">
+                          {t('গ্রাহকদের চেকআউট ও পেমেন্টের জন্য অফিশিয়াল নম্বর ও কাস্টম মার্চেন্ট QR কোড যুক্ত করুন', 'Set official payment number and custom QR code for customer checkout')}
                         </p>
                       </div>
+                    </div>
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-300 mb-1">
-                          {t('QR কোড ইমেজ নির্বাচন / আপলোড', 'Upload QR Code Image')}
-                        </label>
-                        
-                        {/* File Upload Button */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <label className="flex-1 cursor-pointer bg-slate-900 hover:bg-slate-950 border border-dashed border-amber-500/50 hover:border-amber-400 rounded-xl p-3 text-center transition">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center justify-between">
+                            <span>{t('পেমেন্ট গ্রহণের অফিশিয়াল মোবাইল নম্বর *', 'Official Payment Mobile Number *')}</span>
+                            <span className="text-[11px] text-amber-400 font-normal">বিকাশ / নগদ / রকেট / উপায়</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={footerFormData.paymentPhone}
+                            onChange={(e) => handleFooterFieldChange('paymentPhone', e.target.value)}
+                            placeholder="e.g. 01717220224"
+                            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-rose-400 focus:border-amber-500 outline-hidden font-mono font-bold shadow-inner"
+                          />
+                          <p className="text-[11px] text-slate-400 mt-1">
+                            এই নম্বরেই গ্রাহক টাকা পাঠাবে এবং QR কোডেও এই নম্বর স্বয়ংক্রিয়ভাবে সংযুক্ত হবে।
+                          </p>
+                        </div>
+
+                        {/* Direct QR Image Upload Box */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
+                            <Upload className="w-4 h-4 text-amber-400" />
+                            <span>{t('মার্চেন্ট / পার্সোনাল QR কোড ছবি আপলোড', 'Upload Custom Payment QR Image')}</span>
+                          </label>
+                          
+                          {/* Hidden File Input */}
+                          <input
+                            type="file"
+                            id="qr-code-file-upload-input"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                try {
+                                  const dataUrl = await compressAndReadFile(file);
+                                  handleFooterFieldChange('qrCodeUrl', dataUrl);
+                                  showToast(language === 'bn' ? 'QR কোড ছবি আপলোড হয়েছে!' : 'QR Code image uploaded successfully!');
+                                } catch (err) {
                                   const reader = new FileReader();
                                   reader.onloadend = () => {
                                     handleFooterFieldChange('qrCodeUrl', reader.result as string);
                                   };
                                   reader.readAsDataURL(file);
                                 }
-                              }}
-                            />
-                            <div className="flex items-center justify-center gap-2 text-xs font-bold text-amber-400">
-                              <Upload className="w-4 h-4" />
-                              <span>{t('ফোন / কম্পিউটার থেকে QR ইমেজ আপলোড করুন', 'Upload QR Code Image File')}</span>
+                              }
+                              e.target.value = '';
+                            }}
+                          />
+
+                          {/* Upload Area / Card */}
+                          <div
+                            onClick={() => document.getElementById('qr-code-file-upload-input')?.click()}
+                            className="cursor-pointer bg-slate-900/90 hover:bg-slate-950 border-2 border-dashed border-amber-500/50 hover:border-amber-400 rounded-2xl p-4 text-center transition flex flex-col items-center justify-center gap-2 group shadow-sm"
+                          >
+                            <div className="w-11 h-11 rounded-full bg-amber-500/10 group-hover:bg-amber-500/20 text-amber-400 flex items-center justify-center transition">
+                              <Upload className="w-5 h-5" />
                             </div>
-                            <span className="text-[10px] text-slate-400 block mt-0.5">PNG, JPG বা WEBP ফরম্যাট</span>
-                          </label>
+                            <div>
+                              <span className="text-xs font-black text-white group-hover:text-amber-400 transition block">
+                                {t('ফোন বা কম্পিউটার থেকে QR কোড ছবি সিলেক্ট করুন', 'Click to Upload QR Code Image File')}
+                              </span>
+                              <span className="text-[11px] text-slate-400 block mt-0.5">
+                                JPG, PNG বা WEBP (বিকাশ বা নগদ মার্চেন্ট QR কোডের স্ক্রিনশট বা ছবি)
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Image Link Input (Optional alternative) */}
+                          <div className="mt-3">
+                            <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                              {t('অথবা অনলাইন ইমেজ লিংক (URL):', 'Or Image URL:')}
+                            </label>
+                            <input
+                              type="text"
+                              value={footerFormData.qrCodeUrl}
+                              onChange={(e) => handleFooterFieldChange('qrCodeUrl', e.target.value)}
+                              placeholder="https://... অথবা খালি রাখলে স্বয়ংক্রিয় স্মার্ট ভেক্টর QR তৈরি হবে"
+                              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-500 outline-hidden font-mono"
+                            />
+                          </div>
+
+                          {footerFormData.qrCodeUrl ? (
+                            <div className="flex items-center justify-between pt-2">
+                              <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                {t('কাস্টম QR ছবি সক্রিয় আছে', 'Custom QR Image Active')}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleFooterFieldChange('qrCodeUrl', '')}
+                                className="text-[11px] text-rose-400 hover:text-rose-300 font-bold underline cursor-pointer"
+                              >
+                                {t('রিমুভ করে ভেক্টর QR ব্যবহার করুন', 'Remove & Use Default Vector QR')}
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
+                              <span>💡</span>
+                              <span>{t('কোনো ছবি না দিলে সিস্টেম স্বয়ংক্রিয়ভাবে নম্বরের সাথে স্মার্ট কিউআর তৈরি করবে।', 'If no image is uploaded, system generates an interactive smart QR.')}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Live Preview Container */}
+                      <div className="bg-slate-950 p-5 rounded-2xl border border-slate-700 flex flex-col items-center justify-center text-center shadow-lg">
+                        <div className="w-full flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
+                          <span className="text-xs font-black text-amber-400 flex items-center gap-1.5">
+                            <QrCode className="w-4 h-4" />
+                            {t('লাইভ স্মার্ট QR কোড প্রিভিউ:', 'Live Smart QR Preview:')}
+                          </span>
+                          <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-bold">
+                            {footerFormData.qrCodeUrl ? 'Custom Image' : 'Smart Dynamic QR'}
+                          </span>
                         </div>
 
-                        <div className="text-[11px] text-slate-400 mb-1">অথবা সরাসরি ইমেজ লিংক (URL) দিন:</div>
-                        <input
-                          type="text"
-                          value={footerFormData.qrCodeUrl}
-                          onChange={(e) => handleFooterFieldChange('qrCodeUrl', e.target.value)}
-                          placeholder="https://... অথবা খালি রাখলে স্বয়ংক্রিয় ভেক্টর QR কোড ব্যবহৃত হবে"
-                          className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:border-amber-500 outline-hidden font-mono"
+                        <PaymentQRCode
+                          paymentMethod="bkash"
+                          phoneNumber={footerFormData.paymentPhone || '01717220224'}
+                          amount={5000}
+                          customImageUrl={footerFormData.qrCodeUrl}
+                          storeName={footerFormData.storeName}
+                          size={160}
+                          showControls={true}
                         />
 
-                        {footerFormData.qrCodeUrl && (
-                          <button
-                            type="button"
-                            onClick={() => handleFooterFieldChange('qrCodeUrl', '')}
-                            className="text-[11px] text-rose-400 hover:text-rose-300 font-bold mt-1.5 underline cursor-pointer"
-                          >
-                            স্মার্ট ভেক্টর QR কোড ডিফল্ট হিসেবে রিসেট করুন
-                          </button>
-                        )}
+                        <span className="text-[11px] text-slate-400 mt-3 max-w-xs">
+                          {t(
+                            'গ্রাহক চেকআউটে এই QR কোড স্ক্যান করে সরাসরি বিকাশ / নগদ অ্যাপ থেকে পেমেন্ট করতে পারবেন।',
+                            'Customers can scan this QR code directly during checkout.'
+                          )}
+                        </span>
                       </div>
-                    </div>
-
-                    {/* Live Preview Container */}
-                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-700 flex flex-col items-center justify-center text-center">
-                      <span className="text-xs font-black text-amber-400 mb-3 flex items-center gap-1.5">
-                        <QrCode className="w-4 h-4" />
-                        {t('লাইভ স্মার্ট QR কোড প্রিভিউ:', 'Live Smart QR Preview:')}
-                      </span>
-
-                      <PaymentQRCode
-                        paymentMethod="bkash"
-                        phoneNumber={footerFormData.paymentPhone || '01717220224'}
-                        amount={5000}
-                        customImageUrl={footerFormData.qrCodeUrl}
-                        storeName={footerFormData.storeName}
-                        size={150}
-                        showControls={true}
-                      />
-
-                      <span className="text-[11px] text-slate-400 mt-2">
-                        গ্রাহক চেকআউটে এই QR কোড স্ক্যান করে পেমেন্ট করতে পারবেন।
-                      </span>
                     </div>
                   </div>
                 )}
