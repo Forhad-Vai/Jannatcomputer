@@ -36,8 +36,8 @@ export function safeBase64Decode(str: string): any {
 
 // Function to get active Supabase credentials (from env or localStorage)
 export function getSupabaseCredentials() {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  const envUrl = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_SUPABASE_URL || '';
+  const envKey = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_SUPABASE_ANON_KEY || '';
   const localUrl = typeof window !== 'undefined' ? localStorage.getItem('jc_supabase_url') || '' : '';
   const localKey = typeof window !== 'undefined' ? localStorage.getItem('jc_supabase_key') || '' : '';
 

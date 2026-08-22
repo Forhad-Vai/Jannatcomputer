@@ -49,6 +49,7 @@ import { useShop } from '../../context/ShopContext';
 import { Order, Coupon, FooterSettings } from '../../types';
 import { PaymentQRCode } from '../Common/PaymentQRCode';
 import { PolicyEditorTab } from './PolicyEditorTab';
+import { HeroBannerEditorTab } from './HeroBannerEditorTab';
 import { changePasswordOnServer, getSupabaseCredentials, saveSupabaseCredentials } from '../../utils/authApi';
 
 export const AdminDashboardModal: React.FC = () => {
@@ -409,7 +410,7 @@ export const AdminDashboardModal: React.FC = () => {
     printWindow.document.close();
   };
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'coupons' | 'policies' | 'footer' | 'security'>('orders');
+  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'coupons' | 'policies' | 'footer' | 'hero' | 'security'>('orders');
   const [footerFormData, setFooterFormData] = useState<FooterSettings>(footerSettings);
   const [footerSubTab, setFooterSubTab] = useState<'general' | 'contact' | 'social' | 'payment'>('general');
 
@@ -666,6 +667,21 @@ export const AdminDashboardModal: React.FC = () => {
             <span>{t('পলিসি ও তথ্য এডিটর (CMS)', 'Policy & Info CMS')}</span>
             <span className="bg-emerald-500 text-slate-950 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase">
               8 Pages
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('hero')}
+            className={`px-4 py-2 rounded-lg flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+              activeTab === 'hero'
+                ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>{t('হিরো ব্যানার ও প্রমোশন (Hero CMS)', 'Hero Banner CMS')}</span>
+            <span className="bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase">
+              Banners
             </span>
           </button>
 
@@ -1900,6 +1916,9 @@ export const AdminDashboardModal: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* TAB: HERO BANNER CMS */}
+          {activeTab === 'hero' && <HeroBannerEditorTab />}
         </div>
       </div>
 

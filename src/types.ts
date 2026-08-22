@@ -214,3 +214,43 @@ export interface StorePolicySettings {
   privacy: PolicySection;
 }
 
+export interface HeroSlide {
+  id: string;
+  tag: string;
+  tagBn: string;
+  title: string;
+  titleBn: string;
+  subtitle: string;
+  subtitleBn: string;
+  bgGradient: string;
+  badgeColor: string;
+  ctaText: string;
+  ctaTextBn: string;
+  ctaActionType: 'pcBuilder' | 'category' | 'aiAdvisor' | 'orderTrack' | 'customLink';
+  ctaActionValue?: string;
+  image: string;
+  isActive: boolean;
+}
+
+export interface HeroSidePromo {
+  id: string;
+  badge: string;
+  badgeBn: string;
+  title: string;
+  titleBn: string;
+  subtitle: string;
+  subtitleBn: string;
+  icon: 'cpu' | 'truck' | 'shield' | 'zap' | 'laptop' | 'package';
+  actionType: 'pcBuilder' | 'orderTrack' | 'category' | 'aiAdvisor';
+  actionValue?: string;
+  ctaText: string;
+  ctaTextBn: string;
+  bgGradient: string;
+}
+
+export interface HeroBannerSettings {
+  autoSlideIntervalSeconds: number;
+  slides: HeroSlide[];
+  sidePromos: HeroSidePromo[];
+}
+

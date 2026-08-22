@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, CartItem, PCComponentCategory, Order, FilterState, Language, UserProfile, Coupon, FooterSettings, PolicyTab, StorePolicySettings, PolicySection } from '../types';
+import { Product, CartItem, PCComponentCategory, Order, FilterState, Language, UserProfile, Coupon, FooterSettings, PolicyTab, StorePolicySettings, PolicySection, HeroBannerSettings, HeroSlide, HeroSidePromo } from '../types';
 import { productsData } from '../data/products';
 import { defaultPolicySettings } from '../data/defaultPolicies';
+import { defaultHeroBannerSettings } from '../data/defaultHeroBanner';
 import { verifyCurrentSession, logoutSession } from '../utils/authApi';
 
 interface ShopContextType {
@@ -21,6 +22,15 @@ interface ShopContextType {
   footerSettings: FooterSettings;
   updateFooterSettings: (updated: Partial<FooterSettings>) => void;
   resetFooterSettings: () => void;
+
+  // Hero Banner Settings
+  heroBannerSettings: HeroBannerSettings;
+  updateHeroBannerSettings: (updated: Partial<HeroBannerSettings>) => void;
+  updateHeroSlide: (id: string, updated: Partial<HeroSlide>) => void;
+  addHeroSlide: (slide: HeroSlide) => void;
+  deleteHeroSlide: (id: string) => void;
+  updateHeroSidePromo: (id: string, updated: Partial<HeroSidePromo>) => void;
+  resetHeroBannerSettings: () => void;
 
   // Policies & Information Settings
   policySettings: StorePolicySettings;
@@ -293,6 +303,132 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       language === 'bn'
         ? 'সকল পলিসি ডিফল্ট অবস্থায় রিস্টোর করা হয়েছে'
         : 'All policies reset to factory defaults'
+    );
+  };
+
+  // Hero Banner Settings state with localStorage persistence
+  const [heroBannerSettings, setHeroBannerSettings] = useState<HeroBannerSettings>(() => {
+    try {
+      const saved = localStorage.getItem('jc_hero_banner_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          autoSlideIntervalSeconds: parsed.autoSlideIntervalSeconds || defaultHeroBannerSettings.autoSlideIntervalSeconds,
+          slides: Array.isArray(parsed.slides) && parsed.slides.length > 0 ? parsed.slides : defaultHeroBannerSettings.slides,
+          sidePromos: Array.isArray(parsed.sidePromos) && parsed.sidePromos.length > 0 ? parsed.sidePromos : defaultHeroBannerSettings.sidePromos,
+        };
+      }
+      return defaultHeroBannerSettings;
+    } catch {
+      return defaultHeroBannerSettings;
+    }
+  });
+
+  const updateHeroBannerSettings = (updated: Partial<HeroBannerSettings>) => {
+    setHeroBannerSettings((prev) => {
+      const next = { ...prev, ...updated };
+      try {
+        localStorage.setItem('jc_hero_banner_settings', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+    showToast(
+      language === 'bn'
+        ? 'হিরো ব্যানার সেটিংস সফলভাবে সেভ করা হয়েছে!'
+        : 'Hero banner settings saved successfully!'
+    );
+  };
+
+  const updateHeroSlide = (id: string, updated: Partial<HeroSlide>) => {
+    setHeroBannerSettings((prev) => {
+      const nextSlides = prev.slides.map((s) => (s.id === id ? { ...s, ...updated } : s));
+      const next = { ...prev, slides: nextSlides };
+      try {
+        localStorage.setItem('jc_hero_banner_settings', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+    showToast(
+      language === 'bn'
+        ? 'স্লাইড সফলভাবে আপডেট হয়েছে!'
+        : 'Slide updated successfully!'
+    );
+  };
+
+  const addHeroSlide = (slide: HeroSlide) => {
+    setHeroBannerSettings((prev) => {
+      const next = { ...prev, slides: [...prev.slides, slide] };
+      try {
+        localStorage.setItem('jc_hero_banner_settings', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+    showToast(
+      language === 'bn'
+        ? 'নতুন স্লাইড সফলভাবে যুক্ত হয়েছে!'
+        : 'New banner slide added successfully!'
+    );
+  };
+
+  const deleteHeroSlide = (id: string) => {
+    setHeroBannerSettings((prev) => {
+      if (prev.slides.length <= 1) {
+        showToast(
+          language === 'bn' ? 'কমপক্ষে ১টি স্লাইড থাকতে হবে!' : 'At least one slide must remain!',
+          'error'
+        );
+        return prev;
+      }
+      const next = { ...prev, slides: prev.slides.filter((s) => s.id !== id) };
+      try {
+        localStorage.setItem('jc_hero_banner_settings', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+    showToast(
+      language === 'bn'
+        ? 'স্লাইডটি মুছে ফেলা হয়েছে'
+        : 'Slide removed successfully'
+    );
+  };
+
+  const updateHeroSidePromo = (id: string, updated: Partial<HeroSidePromo>) => {
+    setHeroBannerSettings((prev) => {
+      const nextPromos = prev.sidePromos.map((p) => (p.id === id ? { ...p, ...updated } : p));
+      const next = { ...prev, sidePromos: nextPromos };
+      try {
+        localStorage.setItem('jc_hero_banner_settings', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+    showToast(
+      language === 'bn'
+        ? 'সাইড প্রমো কার্ড সফলভাবে আপডেট হয়েছে!'
+        : 'Side promo card updated successfully!'
+    );
+  };
+
+  const resetHeroBannerSettings = () => {
+    setHeroBannerSettings(defaultHeroBannerSettings);
+    try {
+      localStorage.removeItem('jc_hero_banner_settings');
+    } catch {
+      // ignore
+    }
+    showToast(
+      language === 'bn'
+        ? 'হিরো ব্যানার ডিফল্ট অবস্থায় রিস্টোর করা হয়েছে'
+        : 'Hero banner reset to factory defaults'
     );
   };
 
@@ -895,6 +1031,13 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
         footerSettings,
         updateFooterSettings,
         resetFooterSettings,
+        heroBannerSettings,
+        updateHeroBannerSettings,
+        updateHeroSlide,
+        addHeroSlide,
+        deleteHeroSlide,
+        updateHeroSidePromo,
+        resetHeroBannerSettings,
         policySettings,
         updatePolicySettings,
         updateSinglePolicy,

@@ -20,6 +20,7 @@ import { AdminLoginModal } from './components/Admin/AdminLoginModal';
 import { MarketPanelModal } from './components/Market/MarketPanelModal';
 import { MarketLoginModal } from './components/Market/MarketLoginModal';
 import { PolicyInfoModal } from './components/Common/PolicyInfoModal';
+import { SplashScreen } from './components/Common/SplashScreen';
 import { Footer } from './components/Footer/Footer';
 import {
   Cpu,
@@ -48,6 +49,9 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans flex flex-col selection:bg-rose-600 selection:text-white">
+      {/* Initial Open Splash Screen */}
+      <SplashScreen />
+
       {/* Toast Notification Alert */}
       {toastMessage && (
         <div className="fixed bottom-20 right-4 sm:right-6 z-60 animate-in slide-in-from-bottom-3 duration-300">
