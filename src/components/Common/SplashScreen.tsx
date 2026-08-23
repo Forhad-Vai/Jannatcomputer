@@ -96,7 +96,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
           </div>
 
           <p className="text-xs sm:text-sm text-slate-300 font-medium pt-1 tracking-wider uppercase">
-            {t('অনলাইন ও পার্টস শপ', 'Online & Parts Shop')}
+            {t('অনলাইন ও এক্সেসরিজ শপ', 'Online & Accessories Shop')}
           </p>
         </div>
 
