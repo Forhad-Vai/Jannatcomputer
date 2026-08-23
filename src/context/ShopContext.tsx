@@ -213,9 +213,6 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const saved = localStorage.getItem('jc_footer_settings');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (!parsed.qrCodeUrl || parsed.qrCodeUrl.includes('kommodo.ai')) {
-          parsed.qrCodeUrl = 'https://cdn.phototourl.com/free/2026-08-18-2c5004d3-0d92-493e-8af1-bfe4b70b3c1d.jpg';
-        }
         if (!parsed.logoUrl) {
           parsed.logoUrl = 'https://cdn.phototourl.com/free/2026-08-18-98718101-691f-402b-af90-3cb095b635e0.png';
         }
@@ -235,6 +232,8 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch {
         // ignore
       }
+      // Immediately sync to server & Supabase cloud DB
+      syncStoreDataToServer({ footerSettings: next }, true);
       return next;
     });
     showToast(language === 'bn' ? 'ফুটার ও শপ তথ্য সফলভাবে আপডেট হয়েছে!' : 'Footer and store details updated successfully!');
@@ -577,11 +576,9 @@ export const ShopProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('jc_products', JSON.stringify(res.data.products));
           }
           if (res.data.footerSettings) {
-            setFooterSettings((prev) => {
-              const merged = { ...prev, ...res.data!.footerSettings };
-              localStorage.setItem('jc_footer_settings', JSON.stringify(merged));
-              return merged;
-            });
+            const serverFooter = res.data.footerSettings;
+            setFooterSettings(serverFooter);
+            localStorage.setItem('jc_footer_settings', JSON.stringify(serverFooter));
           }
           if (res.data.heroBannerSettings) {
             setHeroBannerSettings((prev) => {

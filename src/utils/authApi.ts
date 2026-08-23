@@ -123,7 +123,7 @@ export async function loginRole(
         if (matchedUsers.length === 0) {
           return {
             success: false,
-            message: `Supabase ডেটাবেজে '${cleanUser}' নামের কোনো ইউজার পাওয়া যায়নি। অনুগ্রহ করে আপনার SQL-এ তৈরি করা সঠিক ইউজারনেম দিন।`,
+            message: 'ভুল ইউজারনেম অথবা পাসওয়ার্ড!',
           };
         }
 
@@ -137,14 +137,14 @@ export async function loginRole(
         if (requestedRole === 'admin' && isDbMarket) {
           return {
             success: false,
-            message: `এই অ্যাকাউন্টটি '${cleanUser}' মার্কেট প্যানেলের জন্য তৈরি করা হয়েছে। এটি দিয়ে এডমিন পোর্টালে লগইন করা যাবে না। মার্কেট লগইন প্যানেল ব্যবহার করুন।`,
+            message: 'ভুল ইউজারনেম অথবা পাসওয়ার্ড! (এই অ্যাকাউন্টটি এডমিন পোর্টালে অনুমোদিত নয়)',
           };
         }
 
         if (requestedRole === 'market' && isDbAdmin) {
           return {
             success: false,
-            message: `এই অ্যাকাউন্টটি '${cleanUser}' এডমিন পোর্টালের জন্য তৈরি করা হয়েছে। এটি দিয়ে মার্কেট প্যানেলে লগইন করা যাবে না। এডমিন লগইন প্যানেল ব্যবহার করুন।`,
+            message: 'ভুল ইউজারনেম অথবা পাসওয়ার্ড! (এই অ্যাকাউন্টটি মার্কেট প্যানেলে অনুমোদিত নয়)',
           };
         }
 
@@ -184,24 +184,24 @@ export async function loginRole(
         } else {
           return {
             success: false,
-            message: `ভুল পাসওয়ার্ড! Supabase ডেটাবেজে '${cleanUser}' এর জন্য দেওয়া সঠিক পাসওয়ার্ডটি লিখুন।`,
+            message: 'ভুল ইউজারনেম অথবা পাসওয়ার্ড!',
           };
         }
       } else if (!res.ok) {
         return {
           success: false,
-          message: `Supabase ডেটাবেজ রেসপন্স করেনি (${res.error || 'Connection Failed'})। অনুগ্রহ করে Supabase Project URL ও Anon Key সঠিক কিনা চেক করুন।`,
+          message: 'সার্ভার সংযোগে ত্রুটি দেখা দিয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।',
         };
       } else {
         return {
           success: false,
-          message: `Supabase 'admin_users' টেবিলে কোনো অ্যাকাউন্ট পাওয়া যায়নি। অনুগ্রহ করে SQL স্ক্রিপ্ট রান করুন।`,
+          message: 'ভুল ইউজারনেম অথবা পাসওয়ার্ড!',
         };
       }
     } catch (err: any) {
       return {
         success: false,
-        message: `Supabase সংযোগে ত্রুটি: ${err?.message || 'Network error'}`,
+        message: 'সার্ভার সংযোগে ত্রুটি দেখা দিয়েছে।',
       };
     }
   }
@@ -209,7 +209,7 @@ export async function loginRole(
   // If Supabase is not connected
   return {
     success: false,
-    message: 'Supabase ডেটাবেজ এখনো সংযুক্ত হয়নি! অনুগ্রহ করে লগইন ফর্মের নিচে "Supabase ডেটাবেজ সংযোগ সেটিংস"-এ আপনার Supabase Project URL ও Anon Key দিন।',
+    message: 'ভুল ইউজারনেম অথবা পাসওয়ার্ড!',
   };
 }
 

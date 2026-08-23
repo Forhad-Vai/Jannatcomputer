@@ -58,7 +58,7 @@ export const CheckoutModal: React.FC = () => {
   const [orderPlaced, setOrderPlaced] = useState<Order | null>(null);
 
   const paymentNumber = footerSettings?.paymentPhone || '01717220224';
-  const qrCodeImageUrl = footerSettings?.qrCodeUrl || 'https://cdn.phototourl.com/free/2026-08-18-2c5004d3-0d92-493e-8af1-bfe4b70b3c1d.jpg';
+  const qrCodeImageUrl = footerSettings?.qrCodeUrl || undefined;
 
   // Calculate Shipping fee: Inside Dhaka = 60, Outside = 120
   const shippingFee = district === 'Dhaka' ? 60 : 120;
